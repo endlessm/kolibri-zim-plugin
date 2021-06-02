@@ -1,27 +1,43 @@
 
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+import sys
+
 from setuptools import setup
 
 import kolibri_zim_plugin
 
 
+def read_file(fname):
+    """
+    Read file and decode in py2k
+    """
+    if sys.version_info < (3,):
+        return open(fname).read().decode("utf-8")
+    return open(fname).read()
+
+
 dist_name = "kolibri_zim_plugin"
+plugin_name = "kolibri_zim_plugin"
+repo_url = "https://github.com/endlessm/kolibri-zim-plugin"
+
+readme = read_file("README.md")
+
+# Default description of the distributed package
 description = """Kolibri plugin to add a Zim file viewer"""
 
 
 setup(
     name=dist_name,
-    description=description,
     version=kolibri_zim_plugin.__version__,
+    description=description,
+    long_description=readme,
     author="Endless OS Foundation",
-    author_email="dylan@endless.org",
-    url="https://github.com/endlessm/kolibri-zim-plugin",
-    packages=["kolibri_zim_plugin"],
-    entry_points={
-        "kolibri.plugins": "kolibri_zim_plugin = kolibri_zim_plugin",
-    },
-    package_dir={"kolibri_zim_plugin": "kolibri_zim_plugin"},
+    author_email="dylan@endlessos.org",
+    url=repo_url,
+    packages=[
+        str(plugin_name),  # https://github.com/pypa/setuptools/pull/597
+    ],
+    package_dir={plugin_name: plugin_name},
     install_requires=["libzim==0.0.3.post0"],
     include_package_data=True,
     license="MIT",

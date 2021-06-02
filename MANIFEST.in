@@ -1,0 +1,11 @@
+include AUTHORS.rst
+include CONTRIBUTING.rst
+include CHANGELOG.rst
+include LICENSE
+include README.rst
+include requirements.txt
+recursive-exclude kolibri_zim_plugin/* *pyc
+recursive-include kolibri_zim_plugin/static *.*
+
+recursive-include kolibri_zim_plugin/build *.json
+recursive-exclude kolibri_zim_plugin/assets *
