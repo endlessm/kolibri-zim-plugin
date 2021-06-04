@@ -92,6 +92,10 @@ def _zim_article_response(zim_article):
     # ensure the browser knows not to try byte-range requests, as we don't support them here
     response["Accept-Ranges"] = "none"
     response["Last-Modified"] = http_date(time.time())
+    if zim_article.namespace != "A":
+        # If the article is in the "A" namespace, we can assume it is
+        # text/html. Otherwise, we don't know what its content type is.
+        del response["Content-Type"]
     patch_response_headers(response, cache_timeout=YEAR_IN_SECONDS)
 
     return response
