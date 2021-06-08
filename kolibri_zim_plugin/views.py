@@ -14,6 +14,7 @@ from kolibri.dist.django.http import HttpResponseNotFound
 from kolibri.dist.django.http import HttpResponseNotModified
 from kolibri.dist.django.http import HttpResponsePermanentRedirect
 from kolibri.dist.django.http import HttpResponseServerError
+from kolibri.dist.django.http import JsonResponse
 from kolibri.dist.django.utils.cache import patch_response_headers
 from kolibri.dist.django.utils.http import http_date
 from kolibri.dist.django.views import View
@@ -22,6 +23,9 @@ from kolibri.dist.django.views import View
 # This provides an API similar to the zipfile view in Kolibri core's zip_wsgi.
 # In the future, we should replace this with a change adding Zim file support
 # in the same place: <https://github.com/endlessm/kolibri/pull/3>.
+#
+# We are avoiding Django REST Framework here in case this code needs to be
+# moved to the alternative zip_wsgi server.
 
 
 YEAR_IN_SECONDS = 60 * 60 * 24 * 365
@@ -121,6 +125,39 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         response["Content-Type"] = zim_article.mimetype
         response.write(zim_article.content.tobytes())
         return response
+
+
+class ZimSearchView(_ZimFileViewMixin, View):
+    MAX_RESULTS_MAXIMUM = 100
+
+    def get(self, request, zim_filename):
+        query = request.GET.get("query")
+        max_results = request.GET.get("max_results", 30)
+        suggest = "suggest" in request.GET
+
+        if not query:
+            return HttpResponseBadRequest('Missing "query"')
+
+        try:
+            max_results = int(max_results)
+        except ValueError:
+            return HttpResponseBadRequest('Invalid "max_results"')
+
+        if max_results < 0 or max_results > self.MAX_RESULTS_MAXIMUM:
+            return HttpResponseBadRequest('Invalid "max_results"')
+
+        if suggest:
+            search = self.zim_file.suggest(query, start=0, end=max_results)
+        else:
+            search = self.zim_file.search(query, start=0, end=max_results)
+
+        results = list(self.__article_metadata(path) for path in search)
+
+        return JsonResponse({"results": results, "count": len(results)})
+
+    def __article_metadata(self, zim_article_path):
+        zim_article = self.zim_file.get_article(zim_article_path)
+        return {"title": zim_article.title, "path": zim_article.longurl}
 
 
 def _zim_redirect_response(request, zim_filename, zim_article_path):
