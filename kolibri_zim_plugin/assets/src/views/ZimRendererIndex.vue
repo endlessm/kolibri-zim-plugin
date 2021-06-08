@@ -38,7 +38,7 @@
                 :primary="false"
                 appearance="flat-button"
                 :text="breadcrumb.title"
-                :disabled="index === zimBreadcrumbs.length - 1"
+                :disabled="breadcrumb.href === undefined || breadcrumb.current"
                 tabindex="-1"
                 @click="onNavBreadcrumbClick(breadcrumb)"
               />
@@ -151,16 +151,51 @@
         alert('TODO: Search');
       },
       onIframeLoad() {
-        const href = this.$refs.iframe.contentWindow.location.href;
-        const title = this.$refs.iframe.contentDocument.title;
-        const existingIndex = this.zimBreadcrumbs.findIndex(breadcrumb => breadcrumb.href == href);
+        try {
+          this.$refs.iframe.contentWindow.removeEventListener('unload', this.onIframeUnload);
+          this.$refs.iframe.contentWindow.addEventListener('unload', this.onIframeUnload);
+        } catch (DOMException) {
+          // pass
+        }
+        this.onIframeLocationChanged();
+      },
+      onIframeUnload() {
+        setTimeout(this.onIframeLocationChanged, 0);
+      },
+      onIframeLocationChanged() {
+        // FIXME: Building the breadcrumb trail here involves reading from
+        //        iframe.contentWindow.location, which is not possible with
+        //        cross-origin iframes. This will need to be rewritten when
+        //        the zim backend is moved to a different server.
+
+        let href, title, loading, external;
+        const contentDocument = this.$refs.iframe.contentDocument;
+        const contentWindow = this.$refs.iframe.contentWindow;
+        if (contentDocument && contentDocument.readyState == 'loading') {
+          title = '…';
+          loading = true;
+        } else if (contentDocument) {
+          title = contentDocument.title;
+        } else {
+          title = '…';
+          external = true;
+        }
+        try {
+          href = contentWindow.location.href;
+        } catch (DOMException) {
+          href = undefined;
+        }
+        const existingIndex = this.zimBreadcrumbs.findIndex(breadcrumb => breadcrumb.href === href);
         if (existingIndex >= 0) {
           this.zimBreadcrumbs = this.zimBreadcrumbs.slice(0, existingIndex);
         }
-        this.zimBreadcrumbs.push({ title, href });
+        this.zimBreadcrumbs.forEach(breadcrumb => (breadcrumb.current = false));
+        this.zimBreadcrumbs.push({ title, href, loading, external, current: true });
       },
       onNavBreadcrumbClick(breadcrumb) {
-        this.$refs.iframe.contentWindow.location = breadcrumb.href;
+        if (breadcrumb.href) {
+          this.$refs.iframe.contentWindow.location = breadcrumb.href;
+        }
       },
     },
     $trs: {
