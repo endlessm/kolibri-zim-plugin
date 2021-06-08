@@ -8,13 +8,15 @@ import time
 import libzim.reader
 from kolibri.core.content.utils.paths import get_content_storage_file_path
 from kolibri.dist.django.core.urlresolvers import get_resolver
-from kolibri.dist.django.http import Http404
 from kolibri.dist.django.http import HttpResponse
+from kolibri.dist.django.http import HttpResponseBadRequest
+from kolibri.dist.django.http import HttpResponseNotFound
 from kolibri.dist.django.http import HttpResponseNotModified
 from kolibri.dist.django.http import HttpResponsePermanentRedirect
 from kolibri.dist.django.http import HttpResponseServerError
 from kolibri.dist.django.utils.cache import patch_response_headers
 from kolibri.dist.django.utils.http import http_date
+from kolibri.dist.django.views import View
 
 
 # This provides an API similar to the zipfile view in Kolibri core's zip_wsgi.
@@ -25,49 +27,100 @@ from kolibri.dist.django.utils.http import http_date
 YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 
 
-def zim_index(request, zim_filename):
-    if request.META.get("HTTP_IF_MODIFIED_SINCE"):
-        return HttpResponseNotModified()
-
-    try:
-        zim_file = _get_zim_file(zim_filename)
-    except RuntimeError:
-        return HttpResponseServerError("Error reading Zim file")
-
-    return _zim_redirect_response(request, zim_filename, zim_file.main_page_url)
+class ZimFileNotFoundError(Exception):
+    pass
 
 
-def zim_article(request, zim_filename, zim_article_path):
-    if request.META.get("HTTP_IF_MODIFIED_SINCE"):
-        return HttpResponseNotModified()
-
-    try:
-        zim_file = _get_zim_file(zim_filename)
-    except RuntimeError:
-        raise HttpResponseServerError("Error reading Zim file")
-
-    try:
-        zim_article = zim_file.get_article(zim_article_path)
-    except KeyError:
-        raise Http404("Article does not exist")
-
-    if zim_article.is_redirect:
-        redirect_article = zim_article.get_redirect_article()
-        return _zim_redirect_response(request, zim_filename, redirect_article.longurl)
-
-    return _zim_article_response(zim_article)
+class ZimFileReadError(Exception):
+    pass
 
 
-def _get_zim_file(zim_filename):
-    zim_file_path = get_content_storage_file_path(zim_filename)
+class _ZimFileViewMixin(View):
+    def dispatch(self, request, *args, **kwargs):
+        zim_filename = kwargs["zim_filename"]
 
-    if not os.path.exists(zim_file_path):
-        raise Http404("Zim file does not exist")
+        try:
+            self.zim_file = self.__get_zim_file(zim_filename)
+        except ZimFileNotFoundError:
+            return HttpResponseNotFound("Zim file does not exist")
+        except ZimFileReadError:
+            return HttpResponseServerError("Error reading Zim file")
 
-    # Raises RuntimeError
-    zim_file = libzim.reader.File(zim_file_path)
+        return super().dispatch(request, *args, **kwargs)
 
-    return zim_file
+    def __get_zim_file(self, zim_filename):
+        zim_file_path = get_content_storage_file_path(zim_filename)
+
+        if not os.path.exists(zim_file_path):
+            raise ZimFileNotFoundError()
+
+        # Raises RuntimeError
+        try:
+            zim_file = libzim.reader.File(zim_file_path)
+        except RuntimeError as error:
+            raise ZimFileReadError(str(error))
+
+        return zim_file
+
+
+class _ImmutableViewMixin(View):
+    def dispatch(self, request, *args, **kwargs):
+        if request.method != "GET":
+            return super().dispatch(request, *args, **kwargs)
+        elif request.META.get("HTTP_IF_MODIFIED_SINCE"):
+            return HttpResponseNotModified()
+        else:
+            response = super().dispatch(request, *args, **kwargs)
+        if response.status_code == 200:
+            patch_response_headers(response, cache_timeout=YEAR_IN_SECONDS)
+        return response
+
+
+class ZimIndexView(_ImmutableViewMixin, _ZimFileViewMixin, View):
+    http_method_names = (
+        "get",
+        "options",
+    )
+
+    def get(self, request, zim_filename):
+        if request.META.get("HTTP_IF_MODIFIED_SINCE"):
+            return HttpResponseNotModified()
+
+        return _zim_redirect_response(
+            request, zim_filename, self.zim_file.main_page_url
+        )
+
+
+class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
+    http_method_names = (
+        "get",
+        "options",
+    )
+
+    def get(self, request, zim_filename, zim_article_path):
+        try:
+            zim_article = self.zim_file.get_article(zim_article_path)
+        except KeyError:
+            return HttpResponseNotFound("Article does not exist")
+
+        if zim_article.is_redirect:
+            redirect_article = zim_article.get_redirect_article()
+            return _zim_redirect_response(
+                request, zim_filename, redirect_article.longurl
+            )
+
+        # TODO: It would be better to use StreamingHttpResponse or FileResponse
+        #       here. We are copying the entire file for now for simplicity since
+        #       we may use a different Zim implementation in the near future.
+
+        response = HttpResponse()
+        response["Content-Length"] = zim_article.content.nbytes
+        # ensure the browser knows not to try byte-range requests, as we don't support them here
+        response["Accept-Ranges"] = "none"
+        response["Last-Modified"] = http_date(time.time())
+        response["Content-Type"] = zim_article.mimetype
+        response.write(zim_article.content.tobytes())
+        return response
 
 
 def _zim_redirect_response(request, zim_filename, zim_article_path):
@@ -79,23 +132,3 @@ def _zim_redirect_response(request, zim_filename, zim_article_path):
         "zim_article", zim_filename=zim_filename, zim_article_path=zim_article_path
     )
     return HttpResponsePermanentRedirect(request.build_absolute_uri("/" + redirect_url))
-
-
-def _zim_article_response(zim_article):
-    # TODO: It would be better to use StreamingHttpResponse or FileResponse
-    #       here. We are copying the entire file for now for simplicity since
-    #       we may use a different Zim implementation in the near future.
-
-    response = HttpResponse()
-    response.write(zim_article.content.tobytes())
-    response["Content-Length"] = zim_article.content.nbytes
-    # ensure the browser knows not to try byte-range requests, as we don't support them here
-    response["Accept-Ranges"] = "none"
-    response["Last-Modified"] = http_date(time.time())
-    if zim_article.namespace != "A":
-        # If the article is in the "A" namespace, we can assume it is
-        # text/html. Otherwise, we don't know what its content type is.
-        del response["Content-Type"]
-    patch_response_headers(response, cache_timeout=YEAR_IN_SECONDS)
-
-    return response

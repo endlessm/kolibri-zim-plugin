@@ -1,13 +1,17 @@
 from kolibri.dist.django.conf.urls import url
 
-from .views import zim_article
-from .views import zim_index
+from .views import ZimArticleView
+from .views import ZimIndexView
 
 urlpatterns = [
-    url(r"^zimcontent/(?P<zim_filename>[^/]+.zim)$", zim_index, name="zim_index"),
     url(
-        r"^zimcontent/(?P<zim_filename>[^/]+.zim)/(?P<zim_article_path>.+)$",
-        zim_article,
+        r"^zim/content/(?P<zim_filename>[^/]+.zim)$",
+        ZimIndexView.as_view(),
+        name="zim_index",
+    ),
+    url(
+        r"^zim/content/(?P<zim_filename>[^/]+.zim)/(?P<zim_article_path>.+)$",
+        ZimArticleView.as_view(),
         name="zim_article",
     ),
 ]
