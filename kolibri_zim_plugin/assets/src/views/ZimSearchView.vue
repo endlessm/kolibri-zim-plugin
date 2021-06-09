@@ -1,19 +1,29 @@
 <template>
+
   <div class="zim-search">
-    <ZimSearchForm ref="searchForm" />
+    <ZimSearchForm
+      ref="searchForm"
+      @submit="onSearchFormSubmit"
+      @reset="onSearchFormReset"
+      @cancel="$emit('cancel')"
+    />
+    <div v-if="isSearchWaiting" class="zim-search-loader">
+      <KLinearLoader />
+    </div>
   </div>
+
 </template>
 
 
 <script>
 
-  import commonCoreStrings from 'kolibri.coreVue.mixins.commonCoreStrings';
   import urls from 'kolibri.urls';
 
+  import ZimSearchResource from '../api-resources/zimSearchResource';
   import ZimSearchForm from './ZimSearchForm';
 
   export default {
-    name: 'ZimRendererIndex',
+    name: 'ZimSearchView',
     components: {
       ZimSearchForm,
     },
@@ -23,19 +33,41 @@
       },
     },
     data() {
-      return {};
+      return {
+        isSearchWaiting: 0,
+        searchResults: {},
+      };
     },
-    computed: {
-      searchText() {
-        return this.$tr('search');
-      },
-    },
+    computed: {},
     methods: {
       /**
        * @public
        */
       focus() {
         this.$refs.searchForm.focus();
+      },
+      onSearchFormSubmit(query) {
+        this.startSearch(query);
+      },
+      onSearchFormReset() {
+        this.searchResults = {};
+      },
+      startSearch(query) {
+        this.isSearchWaiting += 1;
+
+        const max_results = 100;
+
+        ZimSearchResource.search(this.zimFilename, { query, max_results })
+          .then(result => {
+            const { articles, count } = result.data;
+            this.searchResults = { query, articles, count, success: true };
+          })
+          .catch(error => {
+            this.searchResults = { query, error };
+          })
+          .finally(() => {
+            this.isSearchWaiting -= 1;
+          });
       },
       articleUrl(path) {
         return urls.zim_article(this.zimFilename, path);

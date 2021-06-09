@@ -2,8 +2,8 @@
 
   <form
     class="search-box"
-    @submit.prevent="updateSearchQuery"
-    @keydown.esc.prevent="handleEscKey"
+    @submit.prevent="onSubmit"
+    @keydown.esc.prevent="onEscKeyDown"
   >
     <div
       class="search-box-row"
@@ -31,7 +31,7 @@
           class="search-clear-button"
           :class="searchInputValue === '' ? '' : 'search-clear-button-visible'"
           :ariaLabel="$tr('clearButtonLabel')"
-          @click="handleClickClear"
+          @click="onClearButtonClick"
         />
         <div
           class="search-submit-button-wrapper"
@@ -80,13 +80,14 @@
     },
     data() {
       return {
-        searchInputValue: '', // TODO: !!!!!!!!!!
+        searchInputValue: '',
+        lastSubmitValue: '',
       };
     },
     computed: {
       searchBarDisabled() {
         // Disable the search bar if it has been cleared or has not been changed
-        return this.searchInputValue === '' || this.searchInputValue === this.searchTerm;
+        return this.searchInputValue === this.lastSubmitValue;
       },
     },
     mounted() {},
@@ -98,28 +99,29 @@
       focus() {
         this.$refs.searchInput.focus();
       },
-      clearInput() {
-        this.searchInputValue = '';
-      },
-      handleEscKey() {
+      onEscKeyDown() {
         if (this.searchInputValue === '') {
-          this.$emit('closeDropdownSearchBox');
+          this.$emit('cancel');
         } else {
           this.clearInput();
         }
       },
-      handleClickClear() {
+      onClearButtonClick() {
         this.clearInput();
         this.$refs.searchInput.focus();
       },
-      updateSearchQuery() {
-        // const query = {
-        //   searchTerm: this.searchInputValue || this.$route.query.searchTerm,
-        // };
-        // if (this.filters) {
-        //   query.kind = this.$refs.contentKindFilter.selection.value;
-        //   query.channel_id = this.$refs.channelFilter.selection.value;
-        // }
+      onSubmit() {
+        this.lastSubmitValue = this.searchInputValue;
+        if (this.searchInputValue) {
+          this.$emit('submit', this.searchInputValue);
+        } else {
+          this.$emit('reset');
+        }
+      },
+      clearInput() {
+        this.searchInputValue = '';
+        this.lastSubmitValue = '';
+        this.$emit('reset');
       },
     },
     $trs: {
@@ -135,10 +137,6 @@
 <style lang="scss" scoped>
 
   @import '~kolibri-design-system/lib/styles/definitions';
-
-  .search-box {
-    margin-right: 8px;
-  }
 
   .search-box-within-action-bar {
     width: 235px;

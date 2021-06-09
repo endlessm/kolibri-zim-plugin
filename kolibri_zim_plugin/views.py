@@ -151,9 +151,9 @@ class ZimSearchView(_ZimFileViewMixin, View):
         else:
             search = self.zim_file.search(query, start=0, end=max_results)
 
-        results = list(self.__article_metadata(path) for path in search)
+        articles = list(self.__article_metadata(path) for path in search)
 
-        return JsonResponse({"results": results, "count": len(results)})
+        return JsonResponse({"articles": articles, "count": len(articles)})
 
     def __article_metadata(self, zim_article_path):
         zim_article = self.zim_file.get_article(zim_article_path)
