@@ -1,6 +1,6 @@
 <template>
 
-  <ol class="breadcrumbs-list">
+  <transition-group class="breadcrumbs-list" name="breadcrumbs-fade" mode="out-in" tag="ol">
     <template v-for="(breadcrumb, index) in visibleBreadcrumbs">
       <li
         :ref="`breadcrumb${index}`"
@@ -18,7 +18,7 @@
         />
       </li>
     </template>
-  </ol>
+  </transition-group>
 
 </template>
 
@@ -75,6 +75,16 @@
   .breadcrumb-button {
     text-overflow: ellipsis;
     text-transform: none;
+  }
+
+  .breadcrumbs-fade-enter-active,
+  .breadcrumbs-fade-leave-active {
+    transition: opacity 0.5s;
+  }
+
+  .breadcrumbs-fade-enter,
+  .breadcrumbs-fade-leave-to {
+    opacity: 0;
   }
 
 </style>
