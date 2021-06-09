@@ -15,21 +15,33 @@
 
 <script>
 
+  import urls from 'kolibri.urls';
+
   export default {
-    name: 'ZimContent',
+    name: 'ZimContentView',
     components: {},
     props: {
-      indexUrl: {
+      zimFilename: {
         type: String,
       },
     },
-    computed: {},
+    computed: {
+      indexUrl() {
+        return urls.zim_index(this.zimFilename);
+      },
+    },
     methods: {
       /**
        * @public
        */
-      navigate(url) {
+      navigateToUrl(url) {
         this.$refs.iframe.contentWindow.location = url;
+      },
+      /**
+       * @public
+       */
+      navigateToArticle(path) {
+        this.$refs.iframe.contentWindow.location = this.articleUrl(path);
       },
       onIframeLoad() {
         try {
@@ -70,6 +82,9 @@
         }
 
         this.$emit('onnavigate', { href, title, isLoading, isExternal });
+      },
+      articleUrl(path) {
+        return urls.zim_article(this.zimFilename, path);
       },
     },
     $trs: {},

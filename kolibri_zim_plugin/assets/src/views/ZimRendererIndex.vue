@@ -25,7 +25,7 @@
         <ZimBreadcrumbsMenu
           :breadcrumbs="breadcrumbs"
           :currentUrl="isSearching ? undefined : currentUrl"
-          @activate="onNavBreadcrumbClick"
+          @activate="onNavBreadcrumbActivate"
         />
       </nav>
 
@@ -39,15 +39,17 @@
         {{ fullscreenText }}
       </KButton>
     </div>
-    <div class="search" :style="searchStyle">
-      <p>Search box and search results go here</p>
-      <ZimSearchForm ref="searchForm" />
-    </div>
-    <div class="zim-content-container" :style="zimContentContainerStyle">
-      <ZimContent
-        ref="zimContent"
-        :indexUrl="indexUrl"
-        @onnavigate="onZimContentNavigate"
+    <div class="main-container" :style="mainContainerStyle">
+      <ZimSearchView
+        ref="zimSearchView"
+        :hidden="!isSearching"
+        :zimFilename="zimFilename"
+      />
+      <ZimContentView
+        ref="zimContentView"
+        :hidden="isSearching"
+        :zimFilename="zimFilename"
+        @onnavigate="onZimContentViewNavigate"
       />
     </div>
   </CoreFullscreen>
@@ -59,11 +61,10 @@
 
   import CoreFullscreen from 'kolibri.coreVue.components.CoreFullscreen';
   import commonCoreStrings from 'kolibri.coreVue.mixins.commonCoreStrings';
-  import urls from 'kolibri.urls';
 
   import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
-  import ZimContent from './ZimContent';
-  import ZimSearchForm from './ZimSearchForm';
+  import ZimContentView from './ZimContentView';
+  import ZimSearchView from './ZimSearchView';
 
   const defaultContentHeight = '500px';
   const defaultFullscreenHeaderHeight = '37px';
@@ -73,11 +74,10 @@
     name: 'ZimRendererIndex',
     components: {
       CoreFullscreen,
-      ZimSearchForm,
-      ZimContent,
+      ZimSearchView,
+      ZimContentView,
       ZimBreadcrumbsMenu,
     },
-    mixins: [commonCoreStrings],
     data() {
       return {
         isInFullscreen: false,
@@ -89,9 +89,8 @@
       };
     },
     computed: {
-      indexUrl() {
-        const zim_filename = `${this.defaultFile.checksum}.${this.defaultFile.extension}`;
-        return urls.zim_index(zim_filename);
+      zimFilename() {
+        return `${this.defaultFile.checksum}.${this.defaultFile.extension}`;
       },
       iframeHeight() {
         return (this.options && this.options.height) || defaultContentHeight;
@@ -115,17 +114,8 @@
           return { backgroundColor: this.$themePalette.grey.v_200 };
         }
       },
-      searchStyle() {
-        if (this.isSearching) {
-          return { display: 'block' };
-        } else {
-          return { display: 'none' };
-        }
-      },
-      zimContentContainerStyle() {
-        if (this.isSearching) {
-          return { display: 'none' };
-        } else if (this.isInFullscreen) {
+      mainContainerStyle() {
+        if (this.isInFullscreen) {
           return {
             position: 'absolute',
             top: this.fullscreenHeaderHeight,
@@ -182,12 +172,25 @@
           this.recordProgress();
         }, 15000);
       },
-      onZimContentNavigate({ href, title }) {
+      onNavSearchClick() {
+        this.isSearching = true;
+        this.$nextTick(() => {
+          this.$refs.zimSearchView.focus();
+        });
+      },
+      onNavBreadcrumbActivate(breadcrumb) {
+        this.isSearching = false;
+        if (breadcrumb.href) {
+          this.$refs.zimContentView.navigateToUrl(breadcrumb.href);
+        }
+      },
+      onZimContentViewNavigate({ href, title }) {
         this.currentUrl = href;
 
         const existingIndex = this.zimNavigationHistory.findIndex(
           breadcrumb => breadcrumb.href === href
         );
+
         if (existingIndex >= 0) {
           this.zimNavigationHistory = this.zimNavigationHistory.slice(0, existingIndex);
         }
@@ -200,18 +203,6 @@
         }
 
         this.zimNavigationHistory.push({ title, href });
-      },
-      onNavSearchClick() {
-        this.isSearching = true;
-        setTimeout(() => {
-          if (this.$refs.searchForm) this.$refs.searchForm.focus();
-        }, 100);
-      },
-      onNavBreadcrumbClick(breadcrumb) {
-        this.isSearching = false;
-        if (breadcrumb.href) {
-          this.$refs.zimContent.navigate(breadcrumb.href);
-        }
       },
     },
     $trs: {
@@ -229,6 +220,11 @@
 
   @import '~kolibri-design-system/lib/styles/definitions';
 
+  .zim-renderer {
+    position: relative;
+    background: #ffffff;
+  }
+
   .fullscreen-header {
     text-align: right;
   }
@@ -242,18 +238,12 @@
     }
   }
 
-  .zim-renderer {
-    position: relative;
-    text-align: center;
-    background: #ffffff;
-  }
-
-  .zim-content-container {
+  .main-container {
     @extend %momentum-scroll;
 
     width: 100%;
     padding-top: 0.25rem;
-    overflow: visible;
+    overflow: hidden;
     background-color: #ffffff;
   }
 

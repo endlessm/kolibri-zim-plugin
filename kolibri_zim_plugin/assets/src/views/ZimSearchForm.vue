@@ -21,7 +21,7 @@
         name="search-input"
         class="search-input"
         dir="auto"
-        :placeholder="coreString('searchLabel')"
+        :placeholder="$tr('searchPlaceholder')"
       >
       <div class="search-buttons-wrapper">
         <KIconButton
@@ -125,6 +125,7 @@
     $trs: {
       clearButtonLabel: 'Clear',
       startSearchButtonLabel: 'Start search',
+      searchPlaceholder: 'Search for an article',
     },
   };
 
