@@ -39,6 +39,10 @@
         {{ fullscreenText }}
       </KButton>
     </div>
+    <div class="search" :style="searchStyle">
+      <p>Search box and search results go here</p>
+      <ZimSearchForm ref="searchForm" />
+    </div>
     <div class="zim-content-container" :style="zimContentContainerStyle">
       <ZimContent
         ref="zimContent"
@@ -59,6 +63,7 @@
 
   import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
   import ZimContent from './ZimContent';
+  import ZimSearchForm from './ZimSearchForm';
 
   const defaultContentHeight = '500px';
   const defaultFullscreenHeaderHeight = '37px';
@@ -76,6 +81,7 @@
     data() {
       return {
         isInFullscreen: false,
+        isSearching: false,
         currentUrl: undefined,
         zimNavigationHistory: new Array(),
         fullscreenHeaderHeight: defaultFullscreenHeaderHeight,
@@ -109,7 +115,14 @@
           return { backgroundColor: this.$themePalette.grey.v_200 };
         }
       },
-      iframeContainerStyle() {
+      searchStyle() {
+        if (this.isSearching) {
+          return { display: 'block' };
+        } else {
+          return { display: 'none' };
+        }
+      },
+      zimContentContainerStyle() {
         if (this.isSearching) {
           return { display: 'none' };
         } else if (this.isInFullscreen) {
@@ -169,9 +182,6 @@
           this.recordProgress();
         }, 15000);
       },
-      onNavSearchClick() {
-        alert('TODO: Search');
-      },
       onZimContentNavigate({ href, title }) {
         this.currentUrl = href;
 
@@ -191,7 +201,14 @@
 
         this.zimNavigationHistory.push({ title, href });
       },
+      onNavSearchClick() {
+        this.isSearching = true;
+        setTimeout(() => {
+          if (this.$refs.searchForm) this.$refs.searchForm.focus();
+        }, 100);
+      },
       onNavBreadcrumbClick(breadcrumb) {
+        this.isSearching = false;
         if (breadcrumb.href) {
           this.$refs.zimContent.navigate(breadcrumb.href);
         }
