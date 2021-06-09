@@ -10,6 +10,36 @@
     <div v-if="isSearchWaiting" class="zim-search-loader">
       <KLinearLoader />
     </div>
+    <template v-if="searchResults.error">
+      <h2>There was an error searching for '{{ searchResults.query }}'</h2>
+      <TechnicalTextBlock :text="String(searchResults.error)" />
+    </template>
+    <template v-else-if="searchResults.success && searchResults.count > 0">
+      <h2>
+        {{ $tr(
+          'searchResultsMsg', { query: searchResults.query, count: searchResults.count }
+        ) }}
+      </h2>
+      <ol class="search-results-list">
+        <template v-for="(article, index) in searchResults.articles">
+          <li
+            :ref="`article${index}`"
+            :key="index"
+            class="search-result-item"
+          >
+            <KButton
+              appearance="basic-link"
+              :text="article.title"
+              :href="articleUrl(article.path)"
+              @click.prevent="$emit('activate', article)"
+            />
+          </li>
+        </template>
+      </ol>
+    </template>
+    <template v-else-if="searchResults.success && searchResults.count === 0">
+      <h2>{{ $tr('noSearchResultsMsg', { query: searchResults.query }) }}</h2>
+    </template>
   </div>
 
 </template>
@@ -18,6 +48,7 @@
 <script>
 
   import urls from 'kolibri.urls';
+  import TechnicalTextBlock from 'kolibri.coreVue.components.TechnicalTextBlock';
 
   import ZimSearchResource from '../api-resources/zimSearchResource';
   import ZimSearchForm from './ZimSearchForm';
@@ -26,6 +57,7 @@
     name: 'ZimSearchView',
     components: {
       ZimSearchForm,
+      TechnicalTextBlock,
     },
     props: {
       zimFilename: {
@@ -73,6 +105,11 @@
         return urls.zim_article(this.zimFilename, path);
       },
     },
+    $trs: {
+      searchResultsMsg:
+        "{count, plural, one {{count} result} other {Top {count} results}} for '{query}'",
+      noSearchResultsMsg: "No results for '{query}'",
+    },
   };
 
 </script>
@@ -81,12 +118,40 @@
 <style lang="scss" scoped>
 
   @import '~kolibri-design-system/lib/styles/definitions';
+  @import '~kolibri-design-system/lib/buttons-and-links/buttons';
 
   .zim-search {
-    width: 100%;
-    height: 100%;
-    overflow: auto;
     padding: 16px;
+  }
+
+  .zim-search-loader {
+    position: absolute;
+    right: 0;
+    left: 0;
+
+    .ui-progress-linear {
+      position: relative;
+      max-width: 450px;
+      margin: 0 auto;
+    }
+  }
+
+  ol {
+    display: block;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  li {
+    display: block;
+    margin: 0.5rem 0;
+
+    &::before {
+      display: inline-block;
+      margin: 0 6px 0 2px;
+      content: '\203A';
+    }
   }
 
 </style>

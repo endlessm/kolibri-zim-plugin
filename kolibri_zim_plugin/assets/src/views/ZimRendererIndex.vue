@@ -40,14 +40,21 @@
       </KButton>
     </div>
     <div class="main-container" :style="mainContainerStyle">
-      <ZimSearchView
-        ref="zimSearchView"
+      <div
+        ref="zimSearchOverlay"
+        class="zim-search-overlay"
         :hidden="!isSearching"
-        :zimFilename="zimFilename"
-      />
+        @click="onZimSearchOverlayClick($event)"
+      >
+        <ZimSearchView
+          ref="zimSearchView"
+          :zimFilename="zimFilename"
+          @activate="onZimSearchViewActivate"
+          @cancel="onZimSearchViewCancel"
+        />
+      </div>
       <ZimContentView
         ref="zimContentView"
-        :hidden="isSearching"
         :zimFilename="zimFilename"
         @onnavigate="onZimContentViewNavigate"
       />
@@ -60,7 +67,6 @@
 <script>
 
   import CoreFullscreen from 'kolibri.coreVue.components.CoreFullscreen';
-  import commonCoreStrings from 'kolibri.coreVue.mixins.commonCoreStrings';
 
   import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
   import ZimContentView from './ZimContentView';
@@ -184,6 +190,21 @@
           this.$refs.zimContentView.navigateToUrl(breadcrumb.href);
         }
       },
+      onZimSearchViewActivate({ path }) {
+        this.isSearching = false;
+        // Assume that the first item in zimNavigationHistory is the home
+        // article, which we want to keep, and remove everything else.
+        this.zimNavigationHistory.splice(1);
+        this.$refs.zimContentView.navigateToArticle(path);
+      },
+      onZimSearchViewCancel() {
+        this.isSearching = false;
+      },
+      onZimSearchOverlayClick(event) {
+        if (event.target === this.$refs.zimSearchOverlay) {
+          this.isSearching = false;
+        }
+      },
       onZimContentViewNavigate({ href, title }) {
         this.currentUrl = href;
 
@@ -192,7 +213,7 @@
         );
 
         if (existingIndex >= 0) {
-          this.zimNavigationHistory = this.zimNavigationHistory.slice(0, existingIndex);
+          this.zimNavigationHistory.splice(existingIndex);
         }
 
         if (this.zimNavigationHistory.length == 0) {
@@ -219,6 +240,7 @@
 <style lang="scss" scoped>
 
   @import '~kolibri-design-system/lib/styles/definitions';
+  @import '~kolibri-design-system/lib/keen/styles/md-colors';
 
   .zim-renderer {
     position: relative;
@@ -241,10 +263,29 @@
   .main-container {
     @extend %momentum-scroll;
 
+    position: relative;
     width: 100%;
     padding-top: 0.25rem;
     overflow: hidden;
     background-color: #ffffff;
+  }
+
+  .zim-search-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+
+    .zim-search {
+      position: relative;
+      width: 100%;
+      max-height: 100%;
+      overflow: auto;
+      background-color: $md-grey-200;
+      border-bottom: solid 2px $md-grey-400;
+    }
   }
 
 </style>
