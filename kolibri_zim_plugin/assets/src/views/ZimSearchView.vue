@@ -17,7 +17,7 @@
     <template v-else-if="searchResults.success && searchResults.count > 0">
       <h2>
         {{ $tr(
-          'searchResultsMsg', { query: searchResults.query, count: searchResults.count }
+          'searchResultsMsg', { query: searchResults.query, count: searchResults.articles.length }
         ) }}
       </h2>
       <ol class="search-results-list">

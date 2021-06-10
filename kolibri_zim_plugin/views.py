@@ -132,6 +132,7 @@ class ZimSearchView(_ZimFileViewMixin, View):
 
     def get(self, request, zim_filename):
         query = request.GET.get("query")
+        start = request.GET.get("start", 0)
         max_results = request.GET.get("max_results", 30)
         suggest = "suggest" in request.GET
 
@@ -147,13 +148,15 @@ class ZimSearchView(_ZimFileViewMixin, View):
             return HttpResponseBadRequest('Invalid "max_results"')
 
         if suggest:
-            search = self.zim_file.suggest(query, start=0, end=max_results)
+            count = self.zim_file.get_suggestions_results_count(query)
+            search = self.zim_file.suggest(query, start=start, end=start + max_results)
         else:
-            search = self.zim_file.search(query, start=0, end=max_results)
+            count = self.zim_file.get_search_results_count(query)
+            search = self.zim_file.search(query, start=start, end=start + max_results)
 
         articles = list(self.__article_metadata(path) for path in search)
 
-        return JsonResponse({"articles": articles, "count": len(articles)})
+        return JsonResponse({"articles": articles, "count": count})
 
     def __article_metadata(self, zim_article_path):
         zim_article = self.zim_file.get_article(zim_article_path)
