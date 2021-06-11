@@ -132,12 +132,17 @@ class ZimSearchView(_ZimFileViewMixin, View):
 
     def get(self, request, zim_filename):
         query = request.GET.get("query")
+        suggest = "suggest" in request.GET
         start = request.GET.get("start", 0)
         max_results = request.GET.get("max_results", 30)
-        suggest = "suggest" in request.GET
 
         if not query:
             return HttpResponseBadRequest('Missing "query"')
+
+        try:
+            start = int(start)
+        except ValueError:
+            return HttpResponseBadRequest('Invalid "start"')
 
         try:
             max_results = int(max_results)

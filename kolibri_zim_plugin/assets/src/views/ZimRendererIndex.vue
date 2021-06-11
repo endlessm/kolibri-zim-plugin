@@ -284,7 +284,7 @@
       max-height: 100%;
       overflow: auto;
       background-color: $md-grey-200;
-      border-bottom: solid 2px $md-grey-400;
+      border-bottom: 2px solid $md-grey-400;
     }
   }
 

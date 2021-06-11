@@ -7,7 +7,7 @@
       @reset="onSearchFormReset"
       @cancel="$emit('cancel')"
     />
-    <div v-if="isSearchWaiting" class="zim-search-loader">
+    <div v-if="isSearchWaiting > 0" class="zim-search-loader">
       <KLinearLoader />
     </div>
     <template v-if="searchResults.error">
@@ -17,7 +17,10 @@
     <template v-else-if="searchResults.success && searchResults.count > 0">
       <h2>
         {{ $tr(
-          'searchResultsMsg', { query: searchResults.query, count: searchResults.articles.length }
+          'searchResultsMsg', {
+            query: searchResults.query,
+            count: $formatNumber(searchResults.articles.length)
+          }
         ) }}
       </h2>
       <ol class="search-results-list">
@@ -36,6 +39,27 @@
           </li>
         </template>
       </ol>
+      <template v-if="searchHasMore">
+        <div class="search-footer">
+          <p>
+            {{ $tr(
+              'moreResultsMsg', {
+                count: $formatNumber(remainingResults)
+              }
+            ) }}
+          </p>
+          <div class="search-more">
+            <KButton
+              appearance="raised-button"
+              class="search-more-button"
+              :disabled="isSearchWaiting > 0 || isSearchMoreWaiting > 0"
+              :text="$tr('loadMoreButtonLabel')"
+              @click.prevent="onSearchMoreClick"
+            />
+            <KCircularLoader v-if="isSearchMoreWaiting > 0" />
+          </div>
+        </div>
+      </template>
     </template>
     <template v-else-if="searchResults.success && searchResults.count === 0">
       <h2>{{ $tr('noSearchResultsMsg', { query: searchResults.query }) }}</h2>
@@ -67,10 +91,22 @@
     data() {
       return {
         isSearchWaiting: 0,
+        isSearchMoreWaiting: 0,
         searchResults: {},
       };
     },
-    computed: {},
+    computed: {
+      searchHasMore() {
+        return this.searchResults.next;
+      },
+      remainingResults() {
+        if (this.searchResults.next) {
+          return this.searchResults.count - this.searchResults.next;
+        } else {
+          return 0;
+        }
+      },
+    },
     methods: {
       /**
        * @public
@@ -78,27 +114,57 @@
       focus() {
         this.$refs.searchForm.focus();
       },
-      onSearchFormSubmit(query) {
-        this.startSearch(query);
-      },
       onSearchFormReset() {
         this.searchResults = {};
       },
-      startSearch(query) {
+      onSearchFormSubmit(query) {
         this.isSearchWaiting += 1;
+        this.startSearch(query).finally(() => {
+          this.isSearchWaiting -= 1;
+        });
+      },
+      onSearchMoreClick() {
+        this.isSearchMoreWaiting += 1;
+        this.startSearch(this.searchResults.query, this.searchResults.next).finally(() => {
+          this.isSearchMoreWaiting -= 1;
+        });
+      },
+      startSearch(query, start = 0) {
+        const max_results = 10;
+        const snippet_length = 140;
 
-        const max_results = 100;
-
-        ZimSearchResource.search(this.zimFilename, { query, max_results })
+        return ZimSearchResource.search(this.zimFilename, {
+          query,
+          start,
+          max_results,
+          snippet_length,
+        })
           .then(result => {
             const { articles, count } = result.data;
-            this.searchResults = { query, articles, count, success: true };
+            const end = start + articles.length;
+            const next = end < count ? end : null;
+
+            if (query === this.searchResults.query && start === this.searchResults.next) {
+              // Add to the existing results
+              this.searchResults = {
+                query,
+                articles: this.searchResults.articles.concat(articles),
+                count,
+                next,
+                success: true,
+              };
+            } else {
+              this.searchResults = {
+                query,
+                articles,
+                count,
+                next,
+                success: true,
+              };
+            }
           })
           .catch(error => {
             this.searchResults = { query, error };
-          })
-          .finally(() => {
-            this.isSearchWaiting -= 1;
           });
       },
       articleUrl(path) {
@@ -109,6 +175,8 @@
       searchResultsMsg:
         "{count, plural, one {{count} result} other {Top {count} results}} for '{query}'",
       noSearchResultsMsg: "No results for '{query}'",
+      moreResultsMsg: '{count, plural, one {{count} more result} other {{count} more results}}',
+      loadMoreButtonLabel: 'Load more',
     },
   };
 
@@ -117,8 +185,9 @@
 
 <style lang="scss" scoped>
 
-  @import '~kolibri-design-system/lib/styles/definitions';
   @import '~kolibri-design-system/lib/buttons-and-links/buttons';
+  @import '~kolibri-design-system/lib/keen/styles/md-colors';
+  @import '~kolibri-design-system/lib/styles/definitions';
 
   .zim-search {
     padding: 16px;
@@ -145,12 +214,39 @@
 
   li {
     display: block;
-    margin: 0.5rem 0;
+    margin: 1rem 0;
+    border-bottom: 1px solid $md-grey-400;
 
-    &::before {
+    &:last-child {
+      border-bottom-style: none;
+    }
+
+    .link {
+      display: block;
+      font-weight: bold;
+    }
+
+    p {
+      margin: 0.5rem 0 1rem;
+      font-size: 0.9375rem;
+    }
+  }
+
+  .search-footer {
+    margin: 1rem 0;
+    text-align: center;
+    border-top: 1px solid $md-grey-400;
+
+    p {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  .search-more {
+    .ui-progress-circular {
+      position: absolute;
       display: inline-block;
-      margin: 0 6px 0 2px;
-      content: '\203A';
+      margin-left: 16px;
     }
   }
 
