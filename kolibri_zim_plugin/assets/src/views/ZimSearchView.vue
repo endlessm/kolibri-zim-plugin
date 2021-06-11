@@ -36,6 +36,7 @@
               :href="articleUrl(article.path)"
               @click.prevent="$emit('activate', article)"
             />
+            <p>{{ article.snippet }}&nbsp;&hellip;</p>
           </li>
         </template>
       </ol>

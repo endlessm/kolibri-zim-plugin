@@ -3,8 +3,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import textwrap
 import time
 
+import bs4
 import libzim.reader
 from kolibri.core.content.utils.paths import get_content_storage_file_path
 from kolibri.dist.django.core.urlresolvers import get_resolver
@@ -29,6 +31,7 @@ from kolibri.dist.django.views import View
 
 
 YEAR_IN_SECONDS = 60 * 60 * 24 * 365
+SNIPPET_MAX_CHARS = 280
 
 
 class ZimFileNotFoundError(Exception):
@@ -135,6 +138,7 @@ class ZimSearchView(_ZimFileViewMixin, View):
         suggest = "suggest" in request.GET
         start = request.GET.get("start", 0)
         max_results = request.GET.get("max_results", 30)
+        snippet_length = request.GET.get("snippet_length", SNIPPET_MAX_CHARS)
 
         if not query:
             return HttpResponseBadRequest('Missing "query"')
@@ -159,13 +163,20 @@ class ZimSearchView(_ZimFileViewMixin, View):
             count = self.zim_file.get_search_results_count(query)
             search = self.zim_file.search(query, start=start, end=start + max_results)
 
-        articles = list(self.__article_metadata(path) for path in search)
+        articles = list(
+            self.__article_metadata(path, snippet_length) for path in search
+        )
 
         return JsonResponse({"articles": articles, "count": count})
 
-    def __article_metadata(self, zim_article_path):
+    def __article_metadata(self, zim_article_path, snippet_length):
         zim_article = self.zim_file.get_article(zim_article_path)
-        return {"title": zim_article.title, "path": zim_article.longurl}
+        snippet = _html_snippet(zim_article.content.tobytes(), max_chars=snippet_length)
+        return {
+            "title": zim_article.title,
+            "snippet": snippet,
+            "path": zim_article.longurl,
+        }
 
 
 def _zim_redirect_response(request, zim_filename, zim_article_path):
@@ -177,3 +188,23 @@ def _zim_redirect_response(request, zim_filename, zim_article_path):
         "zim_article", zim_filename=zim_filename, zim_article_path=zim_article_path
     )
     return HttpResponsePermanentRedirect(request.build_absolute_uri("/" + redirect_url))
+
+
+def _html_snippet(html_str, max_chars):
+    soup = bs4.BeautifulSoup(html_str)
+    snippet_text = _html_snippet_text(soup)
+    return textwrap.shorten(snippet_text, width=max_chars, placeholder="")
+
+
+def _html_snippet_text(soup):
+    meta_description = soup.find("meta", attrs={"name": "description"})
+    if meta_description:
+        return meta_description.get("content")
+
+    article_elems = soup.find("body").find_all(["h2", "h3", "h4", "h5", "h6", "p"])
+    article_elems_text = "\n".join(elem.get_text() for elem in article_elems)
+
+    if len(article_elems_text) > 0:
+        return article_elems_text
+
+    return soup.find("body").get_text()
