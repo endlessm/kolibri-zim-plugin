@@ -283,6 +283,7 @@
       width: 100%;
       max-height: 100%;
       overflow: auto;
+      color: $md-grey-900;
       background-color: $md-grey-200;
       border-bottom: 2px solid $md-grey-400;
     }
