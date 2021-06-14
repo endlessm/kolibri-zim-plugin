@@ -7,44 +7,26 @@
     @changeFullscreen="isInFullscreen = $event"
   >
     <div
+      ref="fullscreenHeader"
       class="fullscreen-header"
       :style="{ backgroundColor: this.$themePalette.grey.v_100 }"
     >
-
-      <nav class="breadcrumbs">
-        <ol class="breadcrumbs-visible-items">
-          <li
-            class="breadcrumb-search-item"
-            :style="{ backgroundColor: this.$themePalette.grey.v_200 }"
-          >
-            <KButton
-              class="breadcrumb-button"
-              :primary="false"
-              appearance="flat-button"
-              aria-controls="zim-container"
-              :text="searchText"
-              icon="search"
-              @click="onNavSearchClick"
-            />
-          </li>
-          <template v-for="(breadcrumb, index) in visibleZimBreadcrumbs">
-            <li
-              :ref="`breadcrumb${index}`"
-              :key="index"
-              class="breadcrumb-history-item"
-            >
-              <KButton
-                class="breadcrumb-button"
-                :primary="false"
-                appearance="flat-button"
-                :text="breadcrumb.title"
-                :disabled="breadcrumb.href === undefined || breadcrumb.current"
-                tabindex="-1"
-                @click="onNavBreadcrumbClick(breadcrumb)"
-              />
-            </li>
-          </template>
-        </ol>
+      <nav class="zim-actions">
+        <KButton
+          class="search-button"
+          :primary="false"
+          appearance="flat-button"
+          aria-controls="zim-container"
+          :text="searchText"
+          :style="navSearchButtonStyle"
+          icon="search"
+          @click="onNavSearchClick"
+        />
+        <ZimBreadcrumbsMenu
+          :breadcrumbs="breadcrumbs"
+          :currentUrl="isSearching ? undefined : currentUrl"
+          @activate="onNavBreadcrumbActivate"
+        />
       </nav>
 
       <KButton
@@ -57,17 +39,25 @@
         {{ fullscreenText }}
       </KButton>
     </div>
-    <div class="iframe-container" :style="containerStyle">
-      <iframe
-        ref="iframe"
-        class="iframe"
-        sandbox="allow-scripts allow-same-origin"
-        frameBorder="0"
-        :style="{ backgroundColor: this.$themePalette.white }"
-        :src="indexUrl"
-        @load="onIframeLoad"
+    <div class="main-container" :style="mainContainerStyle">
+      <div
+        ref="zimSearchOverlay"
+        class="zim-search-overlay"
+        :hidden="!isSearching"
+        @click="onZimSearchOverlayClick($event)"
       >
-      </iframe>
+        <ZimSearchView
+          ref="zimSearchView"
+          :zimFilename="zimFilename"
+          @activate="onZimSearchViewActivate"
+          @cancel="onZimSearchViewCancel"
+        />
+      </div>
+      <ZimContentView
+        ref="zimContentView"
+        :zimFilename="zimFilename"
+        @onnavigate="onZimContentViewNavigate"
+      />
     </div>
   </CoreFullscreen>
 
@@ -77,26 +67,36 @@
 <script>
 
   import CoreFullscreen from 'kolibri.coreVue.components.CoreFullscreen';
-  import urls from 'kolibri.urls';
+
+  import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
+  import ZimContentView from './ZimContentView';
+  import ZimSearchView from './ZimSearchView';
 
   const defaultContentHeight = '500px';
-  const frameTopbarHeight = '37px';
+  const defaultFullscreenHeaderHeight = '37px';
   const pxStringAdd = (x, y) => parseInt(x, 10) + parseInt(y, 10) + 'px';
+
   export default {
     name: 'ZimRendererIndex',
     components: {
       CoreFullscreen,
+      ZimSearchView,
+      ZimContentView,
+      ZimBreadcrumbsMenu,
     },
     data() {
       return {
         isInFullscreen: false,
-        zimBreadcrumbs: new Array(),
+        isSearching: false,
+        currentUrl: undefined,
+        zimNavigationHistory: new Array(),
+        fullscreenHeaderHeight: defaultFullscreenHeaderHeight,
+        resizeObserver: null,
       };
     },
     computed: {
-      indexUrl() {
-        const zim_filename = `${this.defaultFile.checksum}.${this.defaultFile.extension}`;
-        return urls.zim_index(zim_filename);
+      zimFilename() {
+        return `${this.defaultFile.checksum}.${this.defaultFile.extension}`;
       },
       iframeHeight() {
         return (this.options && this.options.height) || defaultContentHeight;
@@ -105,7 +105,7 @@
         return (this.options && this.options.width) || 'auto';
       },
       contentRendererHeight() {
-        return pxStringAdd(this.iframeHeight, frameTopbarHeight);
+        return pxStringAdd(this.iframeHeight, this.fullscreenHeaderHeight);
       },
       fullscreenText() {
         return this.isInFullscreen ? this.$tr('exitFullscreen') : this.$tr('enterFullscreen');
@@ -113,31 +113,62 @@
       searchText() {
         return this.$tr('search');
       },
-      containerStyle() {
+      navSearchButtonStyle() {
+        if (this.isSearching) {
+          return { backgroundColor: this.$themePalette.grey.v_300 };
+        } else {
+          return { backgroundColor: this.$themePalette.grey.v_200 };
+        }
+      },
+      mainContainerStyle() {
         if (this.isInFullscreen) {
           return {
             position: 'absolute',
-            top: frameTopbarHeight,
+            top: this.fullscreenHeaderHeight,
             bottom: 0,
           };
+        } else {
+          return { height: this.iframeHeight };
         }
-        return { height: this.iframeHeight };
       },
-      visibleZimBreadcrumbs() {
-        return this.zimBreadcrumbs.slice(-3);
+      breadcrumbs() {
+        if (this.zimNavigationHistory.length === 0) {
+          const homeBreadcrumb = {
+            title: this.$tr('homeBreadcrumb'),
+            href: this.indexUrl,
+          };
+          return [homeBreadcrumb];
+        } else {
+          return this.zimNavigationHistory.slice();
+        }
       },
     },
     mounted() {
+      this.initResizeObserver();
       this.$emit('startTracking');
       this.pollProgress();
     },
     beforeDestroy() {
+      this.destroyResizeObserver();
       if (this.timeout) {
         clearTimeout(this.timeout);
       }
       this.$emit('stopTracking');
     },
     methods: {
+      initResizeObserver() {
+        // It would be nice to polyfill ResizeObserver, but the default case
+        // should work reasonably well in most situations.
+        this.resizeObserver = new ResizeObserver(this.onFullscreenHeaderResize);
+        this.resizeObserver.observe(this.$refs.fullscreenHeader);
+        this.onFullscreenHeaderResize();
+      },
+      destroyResizeObserver() {
+        if (this.resizeObserver) this.resizeObserver.disconnect();
+      },
+      onFullscreenHeaderResize() {
+        this.fullscreenHeaderHeight = this.$refs.fullscreenHeader.offsetHeight + 'px';
+      },
       recordProgress() {
         this.$emit('updateProgress', this.durationBasedProgress);
         this.pollProgress();
@@ -148,59 +179,57 @@
         }, 15000);
       },
       onNavSearchClick() {
-        alert('TODO: Search');
+        this.isSearching = true;
+        this.$nextTick(() => {
+          this.$refs.zimSearchView.focus();
+        });
       },
-      onIframeLoad() {
-        try {
-          this.$refs.iframe.contentWindow.removeEventListener('unload', this.onIframeUnload);
-          this.$refs.iframe.contentWindow.addEventListener('unload', this.onIframeUnload);
-        } catch (DOMException) {
-          // pass
-        }
-        this.onIframeLocationChanged();
-      },
-      onIframeUnload() {
-        setTimeout(this.onIframeLocationChanged, 0);
-      },
-      onIframeLocationChanged() {
-        // FIXME: Building the breadcrumb trail here involves reading from
-        //        iframe.contentWindow.location, which is not possible with
-        //        cross-origin iframes. This will need to be rewritten when
-        //        the zim backend is moved to a different server.
-
-        let href, title, loading, external;
-        const contentDocument = this.$refs.iframe.contentDocument;
-        const contentWindow = this.$refs.iframe.contentWindow;
-        if (contentDocument && contentDocument.readyState == 'loading') {
-          title = '…';
-          loading = true;
-        } else if (contentDocument) {
-          title = contentDocument.title;
-        } else {
-          title = '…';
-          external = true;
-        }
-        try {
-          href = contentWindow.location.href;
-        } catch (DOMException) {
-          href = undefined;
-        }
-        const existingIndex = this.zimBreadcrumbs.findIndex(breadcrumb => breadcrumb.href === href);
-        if (existingIndex >= 0) {
-          this.zimBreadcrumbs = this.zimBreadcrumbs.slice(0, existingIndex);
-        }
-        this.zimBreadcrumbs.forEach(breadcrumb => (breadcrumb.current = false));
-        this.zimBreadcrumbs.push({ title, href, loading, external, current: true });
-      },
-      onNavBreadcrumbClick(breadcrumb) {
+      onNavBreadcrumbActivate(breadcrumb) {
+        this.isSearching = false;
         if (breadcrumb.href) {
-          this.$refs.iframe.contentWindow.location = breadcrumb.href;
+          this.$refs.zimContentView.navigateToUrl(breadcrumb.href);
         }
+      },
+      onZimSearchViewActivate({ path }) {
+        this.isSearching = false;
+        // Assume that the first item in zimNavigationHistory is the home
+        // article, which we want to keep, and remove everything else.
+        this.zimNavigationHistory.splice(1);
+        this.$refs.zimContentView.navigateToArticle(path);
+      },
+      onZimSearchViewCancel() {
+        this.isSearching = false;
+      },
+      onZimSearchOverlayClick(event) {
+        if (event.target === this.$refs.zimSearchOverlay) {
+          this.isSearching = false;
+        }
+      },
+      onZimContentViewNavigate({ href, title }) {
+        this.currentUrl = href;
+
+        const existingIndex = this.zimNavigationHistory.findIndex(
+          breadcrumb => breadcrumb.href === href
+        );
+
+        if (existingIndex >= 0) {
+          this.zimNavigationHistory.splice(existingIndex);
+        }
+
+        if (this.zimNavigationHistory.length == 0) {
+          // We always assume the first breadcrumb is the home page. It has a
+          // special title because the page title for the English Wikipedia
+          // Zim file's index page is "User:The_other_Kiwix_guy/Landing".
+          title = this.$tr('homeBreadcrumb');
+        }
+
+        this.zimNavigationHistory.push({ title, href });
       },
     },
     $trs: {
-      exitFullscreen: 'Exit Fullscreen',
       enterFullscreen: 'View Fullscreen',
+      exitFullscreen: 'Exit Fullscreen',
+      homeBreadcrumb: 'Home',
       search: 'Search',
     },
   };
@@ -211,54 +240,51 @@
 <style lang="scss" scoped>
 
   @import '~kolibri-design-system/lib/styles/definitions';
+  @import '~kolibri-design-system/lib/keen/styles/md-colors';
+
+  .zim-renderer {
+    position: relative;
+    background: #ffffff;
+  }
 
   .fullscreen-header {
     text-align: right;
   }
 
-  .fs-icon {
-    position: relative;
-    top: 8px;
-    width: 24px;
-    height: 24px;
-  }
-
-  .zim-renderer {
-    position: relative;
-    text-align: center;
-  }
-
-  .iframe {
-    width: 100%;
-    height: 100%;
-  }
-
-  .iframe-container {
-    @extend %momentum-scroll;
-
-    width: 100%;
-    overflow: visible;
-  }
-
-  .breadcrumbs {
+  .zim-actions {
     display: block;
     float: left;
 
-    ol {
-      display: inline-block;
-      padding: 0;
-      margin: 0;
-      list-style: none;
-    }
-
-    li {
-      display: inline-block;
-      max-width: 10rem;
-    }
-
-    .breadcrumb-button {
-      text-overflow: ellipsis;
+    .search-button {
       text-transform: none;
+    }
+  }
+
+  .main-container {
+    @extend %momentum-scroll;
+
+    position: relative;
+    width: 100%;
+    padding-top: 0.25rem;
+    overflow: hidden;
+    background-color: #ffffff;
+  }
+
+  .zim-search-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+
+    .zim-search {
+      position: relative;
+      width: 100%;
+      max-height: 100%;
+      overflow: auto;
+      background-color: $md-grey-200;
+      border-bottom: 2px solid $md-grey-400;
     }
   }
 
