@@ -251,6 +251,10 @@
     text-align: right;
   }
 
+  /deep/ .fullscreen-header .button {
+    border-radius: 0;
+  }
+
   .zim-actions {
     display: block;
     float: left;

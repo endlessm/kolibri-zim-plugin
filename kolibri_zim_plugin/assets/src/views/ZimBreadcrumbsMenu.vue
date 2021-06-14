@@ -13,7 +13,6 @@
           appearance="flat-button"
           :text="breadcrumb.title"
           :disabled="!breadcrumbIsEnabled(breadcrumb)"
-          tabindex="-1"
           @click="$emit('activate', breadcrumb)"
         />
       </li>
