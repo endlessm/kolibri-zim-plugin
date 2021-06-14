@@ -3,6 +3,7 @@
   <div class="zim-search">
     <ZimSearchForm
       ref="searchForm"
+      @input="onSearchFormInput"
       @submit="onSearchFormSubmit"
       @reset="onSearchFormReset"
       @cancel="$emit('cancel')"
@@ -10,6 +11,30 @@
     <div v-if="isSearchWaiting > 0" class="zim-search-loader">
       <KLinearLoader />
     </div>
+    <template v-if="suggestResults.success && suggestResults.articles.length > 0">
+      <ol class="suggest-results-list">
+        <template v-for="(article, index) in suggestResults.articles">
+          <li
+            :ref="`article${index}`"
+            :key="index"
+            class="suggest-result-item"
+          >
+            <KButton
+              appearance="flat-button"
+              class="suggest-result-button"
+              :appearanceOverrides="{
+                color: $themeTokens.link,
+                ':hover': { color: $themeTokens.linkDark },
+              }"
+              :text="article.title"
+              :title="article.title"
+              :href="articleUrl(article.path)"
+              @click.prevent="$emit('activate', article)"
+            />
+          </li>
+        </template>
+      </ol>
+    </template>
     <template v-if="searchResults.error">
       <h2>There was an error searching for '{{ searchResults.query }}'</h2>
       <TechnicalTextBlock :text="String(searchResults.error)" />
@@ -52,6 +77,7 @@
           <div class="search-more">
             <KButton
               appearance="raised-button"
+              primary="true"
               class="search-more-button"
               :disabled="isSearchWaiting > 0 || isSearchMoreWaiting > 0"
               :text="$tr('loadMoreButtonLabel')"
@@ -75,6 +101,8 @@
   import urls from 'kolibri.urls';
   import TechnicalTextBlock from 'kolibri.coreVue.components.TechnicalTextBlock';
 
+  import debounce from 'lodash/debounce';
+
   import ZimSearchResource from '../api-resources/zimSearchResource';
   import ZimSearchForm from './ZimSearchForm';
 
@@ -91,9 +119,10 @@
     },
     data() {
       return {
-        isSearchWaiting: 0,
         isSearchMoreWaiting: 0,
+        isSearchWaiting: 0,
         searchResults: {},
+        suggestResults: {},
       };
     },
     computed: {
@@ -107,6 +136,12 @@
           return 0;
         }
       },
+      startSuggestDebounced() {
+        return debounce(this.startSuggest, 500);
+      },
+    },
+    beforeDestroy() {
+      this.startSuggestDebounced.cancel();
     },
     methods: {
       /**
@@ -116,7 +151,11 @@
         this.$refs.searchForm.focus();
       },
       onSearchFormReset() {
+        this.suggestResults = {};
         this.searchResults = {};
+      },
+      onSearchFormInput() {
+        this.startSuggestDebounced();
       },
       onSearchFormSubmit(query) {
         this.isSearchWaiting += 1;
@@ -129,6 +168,35 @@
         this.startSearch(this.searchResults.query, this.searchResults.next).finally(() => {
           this.isSearchMoreWaiting -= 1;
         });
+      },
+      startSuggest() {
+        const query = this.$refs.searchForm.getInput();
+
+        if (query.length < 3) {
+          this.suggestResults = {};
+          return;
+        }
+
+        return ZimSearchResource.search(this.zimFilename, {
+          query,
+          max_results: 20,
+          suggest: true,
+        })
+          .then(result => {
+            if (this.$refs.searchForm.getInput() !== query) {
+              return;
+            }
+            const { articles } = result.data;
+            this.suggestResults = {
+              query,
+              articles: this.filterDuplicateArticles(articles, 5),
+              success: true,
+            };
+          })
+          .catch(error => {
+            console.log('error', error);
+            this.suggestResults = {};
+          });
       },
       startSearch(query, start = 0) {
         const max_results = 10;
@@ -168,6 +236,22 @@
             this.searchResults = { query, error };
           });
       },
+      filterDuplicateArticles(articles, limit) {
+        // The search suggestions API tends to return many articles which
+        // redirect to the same place, for example with minor spelling
+        // differences. We solve this by fetching a larger number of results
+        // than we will display, and removing the duplicate results.
+        const articlePaths = new Set();
+        return articles.reduce((result, article) => {
+          const path = article.redirect || article.path;
+          if (!articlePaths.has(path) && result.length < limit) {
+            articlePaths.add(path);
+            return result.concat(article);
+          } else {
+            return result;
+          }
+        }, []);
+      },
       articleUrl(path) {
         return urls.zim_article(this.zimFilename, path);
       },
@@ -206,20 +290,42 @@
     }
   }
 
-  ol {
+  ol.suggest-results-list {
+    display: block;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    text-align: center;
+    list-style: none;
+
+    li.suggest-result-item {
+      display: inline-block;
+      max-width: 10rem;
+      margin: 0.25rem;
+
+      .suggest-result-button {
+        font-weight: normal;
+        text-decoration: underline;
+        text-overflow: ellipsis;
+        text-transform: none;
+        border-radius: $radius;
+      }
+    }
+  }
+
+  ol.search-results-list {
     display: block;
     padding: 0;
     margin: 0;
     list-style: none;
-  }
 
-  li {
-    display: block;
-    margin: 1rem 0;
-    border-bottom: 1px solid $md-grey-400;
+    li.search-result-item {
+      display: block;
+      margin: 1rem 0;
+      border-bottom: 1px solid $md-grey-400;
 
-    &:last-child {
-      border-bottom-style: none;
+      &:last-child {
+        border-bottom-style: none;
+      }
     }
 
     .link {

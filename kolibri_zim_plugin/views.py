@@ -138,7 +138,10 @@ class ZimSearchView(_ZimFileViewMixin, View):
         suggest = "suggest" in request.GET
         start = request.GET.get("start", 0)
         max_results = request.GET.get("max_results", 30)
-        snippet_length = request.GET.get("snippet_length", SNIPPET_MAX_CHARS)
+        if suggest:
+            snippet_length = None
+        else:
+            snippet_length = request.GET.get("snippet_length", SNIPPET_MAX_CHARS)
 
         if not query:
             return HttpResponseBadRequest('Missing "query"')
@@ -171,12 +174,14 @@ class ZimSearchView(_ZimFileViewMixin, View):
 
     def __article_metadata(self, zim_article_path, snippet_length):
         zim_article = self.zim_file.get_article(zim_article_path)
-        snippet = _html_snippet(zim_article.content.tobytes(), max_chars=snippet_length)
-        return {
-            "title": zim_article.title,
-            "snippet": snippet,
-            "path": zim_article.longurl,
-        }
+        result = {"title": zim_article.title, "path": zim_article.longurl}
+        if snippet_length:
+            result["snippet"] = _html_snippet(
+                zim_article.content.tobytes(), max_chars=snippet_length
+            )
+        if zim_article.is_redirect:
+            result["redirect"] = zim_article.get_redirect_article().longurl
+        return result
 
 
 def _zim_redirect_response(request, zim_filename, zim_article_path):

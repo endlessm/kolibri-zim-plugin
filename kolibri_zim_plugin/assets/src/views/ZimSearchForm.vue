@@ -21,6 +21,7 @@
         name="search-input"
         class="search-input"
         dir="auto"
+        autocomplete="off"
         :placeholder="$tr('searchPlaceholder')"
       >
       <div class="search-buttons-wrapper">
@@ -90,6 +91,11 @@
         return this.searchInputValue === this.lastSubmitValue;
       },
     },
+    watch: {
+      searchInputValue(value) {
+        this.$emit('input', value);
+      },
+    },
     mounted() {},
     beforeDestroy() {},
     methods: {
@@ -98,6 +104,12 @@
        */
       focus() {
         this.$refs.searchInput.focus();
+      },
+      /**
+       * @public
+       */
+      getInput() {
+        return this.searchInputValue;
       },
       onEscKeyDown() {
         if (this.searchInputValue === '') {
