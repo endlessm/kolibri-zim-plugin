@@ -27,6 +27,14 @@
           :currentUrl="isSearching ? undefined : currentUrl"
           @activate="onNavBreadcrumbActivate"
         />
+        <KButton
+          class="random-article-button"
+          :primary="false"
+          appearance="flat-button"
+          icon="refresh"
+          :title="randomArticleText"
+          @click="onNavRandomArticleClickDebounced"
+        />
       </nav>
 
       <KButton
@@ -66,7 +74,10 @@
 
 <script>
 
+  import urls from 'kolibri.urls';
   import CoreFullscreen from 'kolibri.coreVue.components.CoreFullscreen';
+
+  import debounce from 'lodash/debounce';
 
   import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
   import ZimContentView from './ZimContentView';
@@ -113,6 +124,9 @@
       searchText() {
         return this.$tr('search');
       },
+      randomArticleText() {
+        return this.$tr('randomArticle');
+      },
       navSearchButtonStyle() {
         if (this.isSearching) {
           return { backgroundColor: this.$themePalette.grey.v_300 };
@@ -141,6 +155,9 @@
         } else {
           return this.zimNavigationHistory.slice();
         }
+      },
+      onNavRandomArticleClickDebounced() {
+        return debounce(this.onNavRandomArticleClick, 500, { leading: true });
       },
     },
     mounted() {
@@ -183,6 +200,10 @@
         this.$nextTick(() => {
           this.$refs.zimSearchView.focus();
         });
+      },
+      onNavRandomArticleClick() {
+        const random_article_url = urls.zim_random_article(this.zimFilename);
+        this.$refs.zimContentView.navigateToUrl(random_article_url);
       },
       onNavBreadcrumbActivate(breadcrumb) {
         this.isSearching = false;
@@ -230,6 +251,7 @@
       enterFullscreen: 'View Fullscreen',
       exitFullscreen: 'Exit Fullscreen',
       homeBreadcrumb: 'Home',
+      randomArticle: 'Random Article',
       search: 'Search',
     },
   };
@@ -259,8 +281,13 @@
     display: block;
     float: left;
 
-    .search-button {
+    .button {
       text-transform: none;
+    }
+
+    .random-article-button {
+      min-width: 36px;
+      padding: 0 8px;
     }
   }
 

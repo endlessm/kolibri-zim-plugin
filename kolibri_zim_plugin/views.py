@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import random
 import textwrap
 import time
 
@@ -15,6 +16,7 @@ from kolibri.dist.django.http import HttpResponseBadRequest
 from kolibri.dist.django.http import HttpResponseNotFound
 from kolibri.dist.django.http import HttpResponseNotModified
 from kolibri.dist.django.http import HttpResponsePermanentRedirect
+from kolibri.dist.django.http import HttpResponseRedirect
 from kolibri.dist.django.http import HttpResponseServerError
 from kolibri.dist.django.http import JsonResponse
 from kolibri.dist.django.utils.cache import patch_response_headers
@@ -90,12 +92,10 @@ class ZimIndexView(_ImmutableViewMixin, _ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        if request.META.get("HTTP_IF_MODIFIED_SINCE"):
-            return HttpResponseNotModified()
-
-        return _zim_redirect_response(
+        article_url = _zim_article_url(
             request, zim_filename, self.zim_file.main_page_url
         )
+        return HttpResponsePermanentRedirect(article_url)
 
 
 class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
@@ -112,9 +112,10 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
 
         if zim_article.is_redirect:
             redirect_article = zim_article.get_redirect_article()
-            return _zim_redirect_response(
+            article_url = _zim_article_url(
                 request, zim_filename, redirect_article.longurl
             )
+            return HttpResponsePermanentRedirect(article_url)
 
         # TODO: It would be better to use StreamingHttpResponse or FileResponse
         #       here. We are copying the entire file for now for simplicity since
@@ -128,6 +129,26 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         response["Content-Type"] = zim_article.mimetype
         response.write(zim_article.content.tobytes())
         return response
+
+
+class ZimRandomArticleView(_ZimFileViewMixin, View):
+    http_method_names = (
+        "get",
+        "options",
+    )
+
+    def get(self, request, zim_filename):
+        articles_start = self.zim_file.get_namespace_count("-")
+        articles_end = articles_start + self.zim_file.get_namespace_count("A")
+        article_id = random.randint(articles_start, articles_end)
+
+        try:
+            zim_article = self.zim_file.get_article_by_id(article_id)
+        except IndexError:
+            return HttpResponseServerError()
+
+        article_url = _zim_article_url(request, zim_filename, zim_article.longurl)
+        return HttpResponseRedirect(article_url)
 
 
 class ZimSearchView(_ZimFileViewMixin, View):
@@ -179,7 +200,7 @@ class ZimSearchView(_ZimFileViewMixin, View):
         }
 
 
-def _zim_redirect_response(request, zim_filename, zim_article_path):
+def _zim_article_url(request, zim_filename, zim_article_path):
     # FIXME: I don't know why I need to torment the resolver like this instead
     #        instead of using django.urls.reverse, but something is trying to
     #        add a language prefix incorrectly and causing an error.
@@ -187,7 +208,7 @@ def _zim_redirect_response(request, zim_filename, zim_article_path):
     redirect_url = resolver.reverse(
         "zim_article", zim_filename=zim_filename, zim_article_path=zim_article_path
     )
-    return HttpResponsePermanentRedirect(request.build_absolute_uri("/" + redirect_url))
+    return request.build_absolute_uri("/" + redirect_url)
 
 
 def _html_snippet(html_str, max_chars):

@@ -12,6 +12,7 @@
           :primary="false"
           appearance="flat-button"
           :text="breadcrumb.title"
+          :title="breadcrumb.title"
           :disabled="!breadcrumbIsEnabled(breadcrumb)"
           @click="$emit('activate', breadcrumb)"
         />
@@ -68,7 +69,7 @@
 
   li {
     display: inline-block;
-    max-width: 10rem;
+    max-width: 8rem;
   }
 
   .breadcrumb-button {
