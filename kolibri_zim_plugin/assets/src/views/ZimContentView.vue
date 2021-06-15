@@ -1,14 +1,9 @@
 <template>
 
-  <iframe
-    ref="iframe"
-    class="iframe"
-    sandbox="allow-scripts allow-same-origin"
-    frameBorder="0"
-    :style="{ backgroundColor: this.$themePalette.white }"
-    :src="indexUrl"
-    @load="onIframeLoad"
-  ></iframe>
+  <div
+    ref="content"
+    class="content"
+  ></div>
 
 </template>
 
@@ -25,66 +20,121 @@
         type: String,
       },
     },
+    data() {
+      return {
+        shadow: null,
+      };
+    },
     computed: {
-      indexUrl() {
-        return urls.zim_index(this.zimFilename);
+      zimPath() {
+        return this.$route.query.zimPath || '';
       },
+    },
+    mounted() {
+      this.shadow = this.$refs.content.attachShadow({ mode: 'closed' });
+      this.shadow.addEventListener('click', this.onShadowClick, { capture: true });
+      this.loadArticle(this.zimPath);
     },
     methods: {
       /**
        * @public
        */
       navigateToUrl(url) {
-        this.$refs.iframe.contentWindow.location = url;
+        const articlePath = this.zimPathFromUrl(new URL(url));
+        if (articlePath) {
+          this.navigateToArticle(articlePath);
+        }
       },
       /**
        * @public
        */
       navigateToArticle(path) {
-        this.$refs.iframe.contentWindow.location = this.articleUrl(path);
+        this.loadArticle(path);
       },
-      onIframeLoad() {
-        try {
-          this.$refs.iframe.contentWindow.removeEventListener('unload', this.onIframeUnload);
-          this.$refs.iframe.contentWindow.addEventListener('unload', this.onIframeUnload);
-        } catch (DOMException) {
-          // pass
-        }
-        this.onIframeLocationChanged();
+      setContent(html, baseUrl) {
+        const parser = new DOMParser();
+        const document = parser.parseFromString(html, 'text/html');
+        const title = document.title;
+        // We can't set the base URI with shadow dom, so we will need to
+        // rewrite relative URLs...
+        document.getElementsByTagName('*').forEach(elem => {
+          if (elem.hasAttribute('href')) {
+            const href = elem.getAttribute('href');
+            const remapUrl = new URL(href, baseUrl);
+            elem.setAttribute('href', remapUrl);
+
+            const zimPath = this.zimPathFromUrl(remapUrl);
+
+            if (zimPath) {
+              elem.setAttribute('data-kolibri-zim-path', zimPath);
+              elem.setAttribute('data-kolibri-zim-hash', remapUrl.hash);
+            }
+
+            if (remapUrl.host !== baseUrl.host) {
+              elem.setAttribute('target', '_blank');
+            }
+          } else if (elem.hasAttribute('src')) {
+            const src = elem.getAttribute('src');
+            const remapUrl = new URL(src, baseUrl);
+            elem.setAttribute('src', remapUrl);
+          }
+        });
+        // TODO: Wait for external resources to load, first, to prevent flash
+        //       of unstyled content.
+        this.shadow.replaceChildren(document.documentElement);
+        return title;
       },
-      onIframeUnload() {
-        setTimeout(this.onIframeLocationChanged, 0);
-      },
-      onIframeLocationChanged() {
-        // FIXME: Building the breadcrumb trail here involves reading from
-        //        iframe.contentWindow.location, which is not possible with
-        //        cross-origin iframes. This will need to be rewritten when
-        //        the zim backend is moved to a different server.
+      zimPathFromUrl(url) {
+        const fullPath = url.pathname;
+        const basePath = urls.zim_article(this.zimFilename, '');
 
-        let href, title, isLoading, isExternal;
-        const contentDocument = this.$refs.iframe.contentDocument;
-        const contentWindow = this.$refs.iframe.contentWindow;
-
-        try {
-          href = contentWindow.location.href;
-        } catch (DOMException) {
-          href = undefined;
-        }
-
-        if (contentDocument && contentDocument.readyState == 'loading') {
-          title = '…';
-          isLoading = true;
-        } else if (contentDocument) {
-          title = contentDocument.title;
+        if (fullPath.startsWith(basePath)) {
+          return fullPath.substr(basePath.length);
         } else {
-          title = '…';
-          isExternal = true;
+          return undefined;
+        }
+      },
+      onShadowClick(event) {
+        const clickElem = this.shadow.elementFromPoint(event.clientX, event.clientY);
+        const linkElem = clickElem ? clickElem.closest('a') : undefined;
+
+        if (!linkElem) {
+          return;
         }
 
-        this.$emit('onnavigate', { href, title, isLoading, isExternal });
+        const zimPath = linkElem.dataset.kolibriZimPath;
+        const zimHash = linkElem.dataset.kolibriZimHash;
+
+        if (zimPath == this.zimPath && zimHash) {
+          // TODO: It would be nice if we put this hash in the URL somewhere
+          //       so the user can navigate back easily.
+          event.preventDefault();
+          const targetElem = this.shadow.getElementById(zimHash.slice(1));
+          targetElem.scrollIntoView();
+        } else if (zimPath == this.zimPath) {
+          event.preventDefault();
+        } else if (zimPath) {
+          event.preventDefault();
+          this.$router.push({ query: { zimPath } });
+        }
       },
-      articleUrl(path) {
-        return urls.zim_article(this.zimFilename, path);
+      loadArticle(path) {
+        const url = path
+          ? urls.zim_article(this.zimFilename, path)
+          : urls.zim_index(this.zimFilename);
+
+        return fetch(url)
+          .then(response => {
+            return Promise.all([response.ok, response.text(), new URL(response.url)]);
+          })
+          .then(([response_ok, html, baseUrl]) => {
+            return Promise.all([response_ok, this.setContent(html, baseUrl)]);
+          })
+          .then(([response_ok, title]) => {
+            if (response_ok) {
+              this.$emit('onnavigate', { path, title });
+            }
+          });
       },
     },
     $trs: {},
@@ -97,9 +147,14 @@
 
   @import '~kolibri-design-system/lib/styles/definitions';
 
-  .iframe {
+  .content {
+    display: block;
     width: 100%;
     height: 100%;
+    overflow: auto;
+    // Set the transform property so fixed-position children are relative to
+    // this element.
+    transform: translate(0);
   }
 
 </style>
