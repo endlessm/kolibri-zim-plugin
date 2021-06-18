@@ -31,10 +31,11 @@
           class="random-article-button"
           :primary="false"
           appearance="flat-button"
-          icon="refresh"
           :title="randomArticleText"
           @click="onNavRandomArticleClickDebounced"
-        />
+        >
+          <ShuffleIcon slot="icon" />
+        </KButton>
       </nav>
 
       <KButton
@@ -82,6 +83,7 @@
   import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
   import ZimContentView from './ZimContentView';
   import ZimSearchView from './ZimSearchView';
+  import ShuffleIcon from './ShuffleIcon';
 
   const defaultContentHeight = '500px';
   const defaultFullscreenHeaderHeight = '37px';
@@ -94,6 +96,7 @@
       ZimSearchView,
       ZimContentView,
       ZimBreadcrumbsMenu,
+      ShuffleIcon,
     },
     data() {
       return {
