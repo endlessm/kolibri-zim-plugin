@@ -1,4 +1,4 @@
-name: Yarn build
+name: Build
 
 on:
   push:
@@ -7,22 +7,33 @@ on:
     branches: [ master ]
 
 jobs:
-  node10:
+  build:
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python 3.7
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
+
     - name: Set up Node
       uses: actions/setup-node@v2
       with:
         node-version: '10.24.1'
+
     - name: Install dependencies
       run: |
+        python -m pip install --upgrade pip
+        python -m pip install wheel
         yarn global add @vue/cli
         yarn install
 
-    - name: Build
-      run: yarn build
+    - name: Run yarn dist
+      run: yarn dist
+
+    - name: Upload whl artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: kolibri-zim-plugin-whl
+        path: dist/kolibri_zim_plugin-*.whl
