@@ -2,30 +2,80 @@
 
 This is a Kolibri plugin to add a Zim file viewer.
 
-## Creating test content (very temporary hack)
+## Usage
 
-Create a pipenv shell:
+Install a release from pypi:
 
-    pipenv install
-    pipenv shell
+    pip install kolibri-zim-plugin
 
-Enable kolibri_zim_plugin:
+Enable the plugin in Kolibri:
 
-    pip install -e .
     kolibri plugin enable kolibri_zim_plugin
 
-Start Kolibri:
+Now, Zim content in Kolibri will be rendered using the Zim plugin.
 
-    kolibri start
+## Development
 
-Override Kolibri's le_utils with our own version:
+### Getting started
 
-    pip install git+https://github.com/dylanmccall/le-utils.git@add-zim-constants --target=$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')/kolibri/dist --upgrade
+Create a pipenv shell and then install additional dependencies using `bootstrap.sh`:
+
+    pipenv shell
+    ./scripts/bootstrap.sh
+
+Install kolibri-explore-plugin in editable mode:
+
+    pip install -e .
+
+To build front end code:
+
+    yarn build
+
+### Submitting changes
+
+Before submitting changes, please be sure to run the pre-commit checks:
+
+    pre-commit run
+
+If you can configure git to run these checks automatically:
+
+    pre-commit install -f --install-hooks
+
+## Creating a release
+
+If you are releasing a new version, use `bump-version` with with `major`, `minor`, or `patch`. For example:
+
+    yarn bump-version patch
+
+This creates a new commit and a git tag. Push this to the remote:
+
+    git push
+    git push --tags
+
+Create a `.whl` file:
+
+    yarn dist
+
+The file will be placed in the `dist/` directory.
+
+Finally, upload the `.whl` file to PyPi:
+
+    yarn release
+
+## Creating test content
+
+This is a temporary hack to add Zim content to Kolibri, after installing and enabling kolibri-zim-plugin.
+
+Override Kolibri's le_utils with the newest version:
+
+    pip install git+https://github.com/learningequality/le-utils.git@master --target=$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')/kolibri/dist --upgrade
 
 Download a Wikipedia zim file to Kolibri's storage directory:
 
     mkdir -p ~/.kolibri/content/storage/0/0
-    curl -L 'https://dumps.wikimedia.org/kiwix/zim/wikipedia/wikipedia_en_100_maxi_2021-05.zim' > ~/.kolibri/content/storage/0/0/00abcdef000000000000000000000000.zim
+    curl -L 'http://download.kiwix.org/zim/wikipedia/wikipedia_en_all_mini_2021-01.zim' > ~/.kolibri/content/storage/0/0/00abcdef000000000000000000000000.zim
+
+> The `wikipedia_en_all_mini_2021-01.zim` zim file is 11 GB. If you need to save space, download `wikipedia_en_100_maxi_2021-05.zim` instead.
 
 Install the "Canal de Patatas" channel:
 
