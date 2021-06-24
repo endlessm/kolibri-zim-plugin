@@ -22,11 +22,6 @@
           icon="search"
           @click="onNavSearchClick"
         />
-        <ZimBreadcrumbsMenu
-          :breadcrumbs="breadcrumbs"
-          :currentUrl="isSearching ? undefined : currentUrl"
-          @activate="onNavBreadcrumbActivate"
-        />
         <KButton
           class="random-article-button"
           :primary="false"
@@ -36,6 +31,11 @@
         >
           <ShuffleIcon slot="icon" />
         </KButton>
+        <ZimBreadcrumbsMenu
+          :breadcrumbs="breadcrumbs"
+          :currentUrl="isSearching ? undefined : currentUrl"
+          @activate="onNavBreadcrumbActivate"
+        />
       </nav>
 
       <KButton
