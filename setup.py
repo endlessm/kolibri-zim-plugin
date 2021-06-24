@@ -30,6 +30,7 @@ setup(
     version=kolibri_zim_plugin.__version__,
     description=description,
     long_description=readme,
+    long_description_content_type="text/markdown",
     author="Endless OS Foundation",
     author_email="dylan@endlessos.org",
     url=repo_url,

@@ -2,6 +2,8 @@
 
 This is a Kolibri plugin to add a Zim file viewer.
 
+![Kolibri Zim plugin showing Wikipedia](https://raw.githubusercontent.com/endlessm/kolibri-zim-plugin/v1.0.0/docs/images/wikipedia-index.png)
+
 ## Usage
 
 Install a release from pypi:
@@ -98,4 +100,4 @@ Edit "Growing potatoes" in "Canal de Patatas" (2f74713b89595a1899a850df897bd7bb)
     file.preset = 'zim'
     file.save()
 
-Navigate to <http://localhost:8080/en/learn/#/topics/c/ad33938ca05a53a6bdf5e79944f12757>
+Navigate to <http://localhost:8080/en/learn/#/topics/c/ad33938ca05a53a6bdf5e79944f12757>.
