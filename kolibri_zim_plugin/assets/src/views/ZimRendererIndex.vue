@@ -13,7 +13,7 @@
     >
       <nav class="zim-actions">
         <KButton
-          class="search-button"
+          class="zim-search-button"
           :primary="false"
           appearance="flat-button"
           aria-controls="zim-container"
@@ -23,7 +23,7 @@
           @click="onNavSearchClick"
         />
         <KButton
-          class="random-article-button"
+          class="zim-random-article-button"
           :primary="false"
           appearance="flat-button"
           :title="randomArticleText"
@@ -288,7 +288,7 @@
       text-transform: none;
     }
 
-    .random-article-button {
+    .zim-random-article-button {
       min-width: 36px;
       padding: 0 8px;
     }

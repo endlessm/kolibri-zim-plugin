@@ -12,16 +12,16 @@
       <KLinearLoader />
     </div>
     <template v-if="suggestResults.success && suggestResults.articles.length > 0">
-      <ol class="suggest-results-list">
+      <ol class="zim-suggest-results-list">
         <template v-for="(article, index) in suggestResults.articles">
           <li
             :ref="`article${index}`"
             :key="index"
-            class="suggest-result-item"
+            class="zim-suggest-result-item"
           >
             <KButton
               appearance="flat-button"
-              class="suggest-result-button"
+              class="zim-suggest-result-button"
               :appearanceOverrides="{
                 color: $themeTokens.link,
                 ':hover': { color: $themeTokens.linkDark },
@@ -48,12 +48,12 @@
           }
         ) }}
       </h2>
-      <ol class="search-results-list">
+      <ol class="zim-search-results-list">
         <template v-for="(article, index) in searchResults.articles">
           <li
             :ref="`article${index}`"
             :key="index"
-            class="search-result-item"
+            class="zim-search-result-item"
           >
             <KButton
               appearance="basic-link"
@@ -66,7 +66,7 @@
         </template>
       </ol>
       <template v-if="searchHasMore">
-        <div class="search-footer">
+        <div class="zim-search-footer">
           <p>
             {{ $tr(
               'moreResultsMsg', {
@@ -74,11 +74,10 @@
               }
             ) }}
           </p>
-          <div class="search-more">
+          <div class="zim-search-more">
             <KButton
               appearance="raised-button"
               primary="true"
-              class="search-more-button"
               :disabled="isSearchWaiting > 0 || isSearchMoreWaiting > 0"
               :text="$tr('loadMoreButtonLabel')"
               @click.prevent="onSearchMoreClick"
@@ -290,19 +289,19 @@
     }
   }
 
-  ol.suggest-results-list {
+  ol.zim-suggest-results-list {
     display: block;
     padding: 0;
     margin: 0.5rem 0 0;
     text-align: center;
     list-style: none;
 
-    li.suggest-result-item {
+    li.zim-suggest-result-item {
       display: inline-block;
       max-width: 10rem;
       margin: 0.25rem;
 
-      .suggest-result-button {
+      .zim-suggest-result-button {
         font-weight: normal;
         text-decoration: underline;
         text-overflow: ellipsis;
@@ -312,13 +311,13 @@
     }
   }
 
-  ol.search-results-list {
+  ol.zim-search-results-list {
     display: block;
     padding: 0;
     margin: 0;
     list-style: none;
 
-    li.search-result-item {
+    li.zim-search-result-item {
       display: block;
       margin: 1rem 0;
       border-bottom: 1px solid $md-grey-400;
@@ -339,7 +338,7 @@
     }
   }
 
-  .search-footer {
+  .zim-search-footer {
     margin: 1rem 0;
     text-align: center;
     border-top: 1px solid $md-grey-400;
@@ -349,7 +348,7 @@
     }
   }
 
-  .search-more {
+  .zim-search-more {
     .ui-progress-circular {
       position: absolute;
       display: inline-block;
