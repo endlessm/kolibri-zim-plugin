@@ -1,14 +1,14 @@
 <template>
 
-  <transition-group class="breadcrumbs-list" name="breadcrumbs-fade" mode="out-in" tag="ol">
+  <transition-group name="zim-breadcrumbs-fade" mode="out-in" tag="ol">
     <template v-for="(breadcrumb, index) in visibleBreadcrumbs">
       <li
         :ref="`breadcrumb${index}`"
         :key="index"
-        class="breadcrumb-item"
+        class="zim-breadcrumb-item"
       >
         <KButton
-          class="breadcrumb-button"
+          class="zim-breadcrumb-button"
           :primary="false"
           appearance="flat-button"
           :text="breadcrumb.title"
@@ -72,18 +72,18 @@
     max-width: 8rem;
   }
 
-  .breadcrumb-button {
+  .zim-breadcrumb-button {
     text-overflow: ellipsis;
     text-transform: none;
   }
 
-  .breadcrumbs-fade-enter-active,
-  .breadcrumbs-fade-leave-active {
+  .zim-breadcrumbs-fade-enter-active,
+  .zim-breadcrumbs-fade-leave-active {
     transition: opacity 0.5s;
   }
 
-  .breadcrumbs-fade-enter,
-  .breadcrumbs-fade-leave-to {
+  .zim-breadcrumbs-fade-enter,
+  .zim-breadcrumbs-fade-leave-to {
     opacity: 0;
   }
 
