@@ -289,6 +289,12 @@
     }
   }
 
+  h2 {
+    margin: 1rem 0;
+    font-size: 1.17rem;
+    font-weight: 600;
+  }
+
   ol.zim-suggest-results-list {
     display: block;
     padding: 0;
@@ -339,7 +345,7 @@
   }
 
   .zim-search-footer {
-    margin: 1rem 0;
+    padding: 1rem 0;
     text-align: center;
     border-top: 1px solid $md-grey-400;
 
