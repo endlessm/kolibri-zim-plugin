@@ -3,7 +3,7 @@
   <form
     class="search-box"
     @submit.prevent="onSubmit"
-    @keydown.esc.prevent="onEscKeyDown"
+    @keydown.esc.stop="onEscKeyDown"
   >
     <div
       class="search-box-row"
