@@ -64,6 +64,7 @@
     display: inline-block;
     padding: 0;
     margin: 0;
+    margin-left: 4px;
     list-style: none;
   }
 
@@ -72,7 +73,22 @@
     max-width: 8rem;
   }
 
-  .zim-breadcrumb-button {
+  li::before {
+    display: inline-block;
+    padding: 0 4px;
+    font-size: 1.2em;
+    line-height: 1em;
+    vertical-align: baseline;
+    content: '\2039';
+    opacity: 0.5;
+  }
+
+  li:first-child::before {
+    display: none;
+  }
+
+  .zim-breadcrumb-button.button {
+    padding: 0 8px;
     text-overflow: ellipsis;
     text-transform: none;
   }
