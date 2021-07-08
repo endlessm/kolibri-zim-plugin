@@ -43,10 +43,9 @@
         :primary="false"
         appearance="flat-button"
         :icon="isInFullscreen ? 'fullscreen_exit' : 'fullscreen'"
+        :text="fullscreenText"
         @click="$refs.zimRenderer.toggleFullscreen()"
-      >
-        {{ fullscreenText }}
-      </KButton>
+      />
     </div>
     <div class="main-container" :style="mainContainerStyle">
       <div
@@ -278,6 +277,18 @@
 
   /deep/ .fullscreen-header .button {
     border-radius: 0;
+
+    .prop-icon + .link-text {
+      margin-left: 0.25em;
+    }
+  }
+
+  /deep/ .fullscreen-button .prop-icon {
+    // From .fs-icon rule in Html5AppRendererIndex
+    position: relative;
+    top: 8px;
+    width: 24px;
+    height: 24px;
   }
 
   .zim-actions {
