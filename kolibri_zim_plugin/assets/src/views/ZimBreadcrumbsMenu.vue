@@ -70,7 +70,6 @@
 
   li {
     display: inline-block;
-    max-width: 8rem;
   }
 
   li::before {
@@ -88,6 +87,7 @@
   }
 
   .zim-breadcrumb-button.button {
+    max-width: 8rem;
     padding: 0 8px;
     text-overflow: ellipsis;
     text-transform: none;
