@@ -9,7 +9,10 @@
     <div
       ref="fullscreenHeader"
       class="fullscreen-header"
-      :style="{ backgroundColor: this.$themePalette.grey.v_100 }"
+      :style="{
+        backgroundColor: this.$themePalette.grey.v_100,
+        color: this.$themeTokens.text
+      }"
     >
       <nav class="zim-actions">
         <KButton
