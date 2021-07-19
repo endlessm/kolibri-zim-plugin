@@ -3,9 +3,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from kolibri.core.content import hooks as content_hooks
-from kolibri.dist.le_utils.constants import format_presets
 from kolibri.plugins import KolibriPluginBase
 from kolibri.plugins.hooks import register_hook
+from le_utils.constants import format_presets
 
 
 class ZimPlugin(KolibriPluginBase):

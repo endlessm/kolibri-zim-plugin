@@ -9,19 +9,19 @@ import time
 
 import bs4
 import libzim.reader
+from django.core.urlresolvers import get_resolver
+from django.http import HttpResponse
+from django.http import HttpResponseBadRequest
+from django.http import HttpResponseNotFound
+from django.http import HttpResponseNotModified
+from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponseRedirect
+from django.http import HttpResponseServerError
+from django.http import JsonResponse
+from django.utils.cache import patch_response_headers
+from django.utils.http import http_date
+from django.views import View
 from kolibri.core.content.utils.paths import get_content_storage_file_path
-from kolibri.dist.django.core.urlresolvers import get_resolver
-from kolibri.dist.django.http import HttpResponse
-from kolibri.dist.django.http import HttpResponseBadRequest
-from kolibri.dist.django.http import HttpResponseNotFound
-from kolibri.dist.django.http import HttpResponseNotModified
-from kolibri.dist.django.http import HttpResponsePermanentRedirect
-from kolibri.dist.django.http import HttpResponseRedirect
-from kolibri.dist.django.http import HttpResponseServerError
-from kolibri.dist.django.http import JsonResponse
-from kolibri.dist.django.utils.cache import patch_response_headers
-from kolibri.dist.django.utils.http import http_date
-from kolibri.dist.django.views import View
 
 
 # This provides an API similar to the zipfile view in Kolibri core's zip_wsgi.
