@@ -3,18 +3,15 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
-import random
 import textwrap
 import time
 
 import bs4
-import libzim.reader
 from django.core.urlresolvers import get_resolver
 from django.http import HttpResponse
 from django.http import HttpResponseBadRequest
 from django.http import HttpResponseNotFound
 from django.http import HttpResponseNotModified
-from django.http import HttpResponsePermanentRedirect
 from django.http import HttpResponseRedirect
 from django.http import HttpResponseServerError
 from django.http import JsonResponse
@@ -22,7 +19,8 @@ from django.utils.cache import patch_response_headers
 from django.utils.http import http_date
 from django.views import View
 from kolibri.core.content.utils.paths import get_content_storage_file_path
-
+from zimply_core.zim_core import to_bytes
+from zimply_core.zim_core import ZIMClient
 
 # This provides an API similar to the zipfile view in Kolibri core's zip_wsgi.
 # In the future, we should replace this with a change adding Zim file support
@@ -55,7 +53,7 @@ class _ZimFileViewMixin(View):
         except ZimFileReadError:
             return HttpResponseServerError("Error reading Zim file")
 
-        return super().dispatch(request, *args, **kwargs)
+        return super(_ZimFileViewMixin, self).dispatch(request, *args, **kwargs)
 
     def __get_zim_file(self, zim_filename):
         zim_file_path = get_content_storage_file_path(zim_filename)
@@ -65,7 +63,10 @@ class _ZimFileViewMixin(View):
 
         # Raises RuntimeError
         try:
-            zim_file = libzim.reader.File(zim_file_path)
+            # A ZIMClient requires an encoding (usually UTF-8). The
+            # auto_delete property only applies to an FTS index and will
+            # automagically recreate an index if any issues are detected.
+            zim_file = ZIMClient(zim_file_path, encoding="utf-8", auto_delete=True)
         except RuntimeError as error:
             raise ZimFileReadError(str(error))
 
@@ -75,11 +76,13 @@ class _ZimFileViewMixin(View):
 class _ImmutableViewMixin(View):
     def dispatch(self, request, *args, **kwargs):
         if request.method != "GET":
-            return super().dispatch(request, *args, **kwargs)
+            return super(_ImmutableViewMixin, self).dispatch(request, *args, **kwargs)
         elif request.META.get("HTTP_IF_MODIFIED_SINCE"):
             return HttpResponseNotModified()
         else:
-            response = super().dispatch(request, *args, **kwargs)
+            response = super(_ImmutableViewMixin, self).dispatch(
+                request, *args, **kwargs
+            )
         if response.status_code == 200:
             patch_response_headers(response, cache_timeout=YEAR_IN_SECONDS)
         return response
@@ -92,10 +95,13 @@ class ZimIndexView(_ImmutableViewMixin, _ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        article_url = _zim_article_url(
-            request, zim_filename, self.zim_file.main_page_url
-        )
-        return HttpResponsePermanentRedirect(article_url)
+        main_page = self.zim_file.main_page
+
+        if main_page is None:
+            return HttpResponseNotFound("Article does not exist")
+
+        article_url = _zim_article_url(request, zim_filename, main_page.full_url)
+        return HttpResponseRedirect(article_url)
 
 
 class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
@@ -106,28 +112,27 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
 
     def get(self, request, zim_filename, zim_article_path):
         try:
-            zim_article = self.zim_file.get_article(zim_article_path)
+            if not zim_article_path:
+                return self._get_response_for_article(self.zim_file.main_page)
+            else:
+                zim_article = self.zim_file.get_article(zim_article_path)
+                return self._get_response_for_article(zim_article)
         except KeyError:
             return HttpResponseNotFound("Article does not exist")
 
-        if zim_article.is_redirect:
-            redirect_article = zim_article.get_redirect_article()
-            article_url = _zim_article_url(
-                request, zim_filename, redirect_article.longurl
-            )
-            return HttpResponsePermanentRedirect(article_url)
-
-        # TODO: It would be better to use StreamingHttpResponse or FileResponse
-        #       here. We are copying the entire file for now for simplicity since
-        #       we may use a different Zim implementation in the near future.
+    @staticmethod
+    def _get_response_for_article(article):
+        if article is None:
+            return HttpResponseNotFound("Article does not exist")
 
         response = HttpResponse()
-        response["Content-Length"] = zim_article.content.nbytes
-        # ensure the browser knows not to try byte-range requests, as we don't support them here
+        article_bytes = to_bytes(article.data, "utf-8")
+        response["Content-Length"] = len(article_bytes)
+        # Ensure the browser knows not to try byte-range requests, as we don't support them here
         response["Accept-Ranges"] = "none"
         response["Last-Modified"] = http_date(time.time())
-        response["Content-Type"] = zim_article.mimetype
-        response.write(zim_article.content.tobytes())
+        response["Content-Type"] = article.mimetype
+        response.write(article_bytes)
         return response
 
 
@@ -138,16 +143,9 @@ class ZimRandomArticleView(_ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        articles_start = self.zim_file.get_namespace_count("-")
-        articles_end = articles_start + self.zim_file.get_namespace_count("A")
-        article_id = random.randint(articles_start, articles_end)
-
-        try:
-            zim_article = self.zim_file.get_article_by_id(article_id)
-        except IndexError:
-            return HttpResponseServerError()
-
-        article_url = _zim_article_url(request, zim_filename, zim_article.longurl)
+        article_url = _zim_article_url(
+            request, zim_filename, self.zim_file.random_article_url
+        )
         return HttpResponseRedirect(article_url)
 
 
@@ -180,6 +178,9 @@ class ZimSearchView(_ZimFileViewMixin, View):
         if max_results < 0 or max_results > self.MAX_RESULTS_MAXIMUM:
             return HttpResponseBadRequest('Invalid "max_results"')
 
+        # This results in a list of SearchResult objects ordered by their
+        # score (lower is better is earlier in the list)...
+
         if suggest:
             count = self.zim_file.get_suggestions_results_count(query)
             search = self.zim_file.suggest(query, start=start, end=start + max_results)
@@ -188,27 +189,27 @@ class ZimSearchView(_ZimFileViewMixin, View):
             search = self.zim_file.search(query, start=start, end=start + max_results)
 
         articles = list(
-            self.__article_metadata(path, snippet_length) for path in search
+            self.__article_metadata(result, snippet_length) for result in search
         )
 
         return JsonResponse({"articles": articles, "count": count})
 
-    def __article_metadata(self, zim_article_path, snippet_length):
-        zim_article = self.zim_file.get_article(zim_article_path)
-        result = {"title": zim_article.title, "path": zim_article.longurl}
+    def __article_metadata(self, search_result, snippet_length):
+        full_url = search_result.namespace + "/" + search_result.url
+
+        result = {"title": search_result.title, "path": full_url}
         if snippet_length:
+            zim_article = self.zim_file.get_article(full_url)
             result["snippet"] = _html_snippet(
-                zim_article.content.tobytes(), max_chars=snippet_length
+                to_bytes(zim_article.data, "utf-8"), max_chars=snippet_length
             )
-        if zim_article.is_redirect:
-            result["redirect"] = zim_article.get_redirect_article().longurl
         return result
 
 
 def _zim_article_url(request, zim_filename, zim_article_path):
-    # FIXME: I don't know why I need to torment the resolver like this instead
-    #        instead of using django.urls.reverse, but something is trying to
-    #        add a language prefix incorrectly and causing an error.
+    # I don't know why I need to torment the resolver like this instead of
+    # using django.urls.reverse, but something is trying to add a language
+    # prefix incorrectly and causing an error.
     resolver = get_resolver(None)
     redirect_url = resolver.reverse(
         "zim_article", zim_filename=zim_filename, zim_article_path=zim_article_path
