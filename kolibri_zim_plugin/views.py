@@ -218,7 +218,7 @@ def _zim_article_url(request, zim_filename, zim_article_path):
 
 
 def _html_snippet(html_str, max_chars):
-    soup = bs4.BeautifulSoup(html_str)
+    soup = bs4.BeautifulSoup(html_str, "lxml")
     snippet_text = _html_snippet_text(soup)
     return textwrap.shorten(snippet_text, width=max_chars, placeholder="")
 
