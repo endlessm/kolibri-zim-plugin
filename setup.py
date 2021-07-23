@@ -40,7 +40,8 @@ setup(
     package_dir={plugin_name: plugin_name},
     install_requires=[
         "beautifulsoup4==4.9.3",
-        "libzim==0.0.3.post0",
+        "lxml==4.6.3",
+        "zimply_core>=1.0.0,<2.0.0",
     ],
     include_package_data=True,
     license="MIT",
