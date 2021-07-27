@@ -66,7 +66,12 @@ class _ZimFileViewMixin(View):
             # A ZIMClient requires an encoding (usually UTF-8). The
             # auto_delete property only applies to an FTS index and will
             # automagically recreate an index if any issues are detected.
-            zim_file = ZIMClient(zim_file_path, encoding="utf-8", auto_delete=True)
+            zim_file = ZIMClient(
+                zim_file_path,
+                encoding="utf-8",
+                auto_delete=True,
+                enable_search_index=False,
+            )
         except RuntimeError as error:
             raise ZimFileReadError(str(error))
 
