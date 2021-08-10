@@ -70,7 +70,6 @@ class _ZimFileViewMixin(View):
                 zim_file_path,
                 encoding="utf-8",
                 auto_delete=True,
-                enable_search_index=False,
             )
         except RuntimeError as error:
             raise ZimFileReadError(str(error))
