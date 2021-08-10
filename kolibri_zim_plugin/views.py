@@ -43,6 +43,8 @@ class ZimFileReadError(Exception):
 
 
 class _ZimFileViewMixin(View):
+    zim_client_args = {"enable_search": False}
+
     def dispatch(self, request, *args, **kwargs):
         zim_filename = kwargs["zim_filename"]
 
@@ -70,6 +72,7 @@ class _ZimFileViewMixin(View):
                 zim_file_path,
                 encoding="utf-8",
                 auto_delete=True,
+                **self.zim_client_args
             )
         except RuntimeError as error:
             raise ZimFileReadError(str(error))
@@ -154,6 +157,8 @@ class ZimRandomArticleView(_ZimFileViewMixin, View):
 
 
 class ZimSearchView(_ZimFileViewMixin, View):
+    zim_client_args = {"enable_search": True}
+
     MAX_RESULTS_MAXIMUM = 100
 
     def get(self, request, zim_filename):

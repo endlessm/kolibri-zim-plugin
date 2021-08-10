@@ -41,7 +41,7 @@ setup(
     install_requires=[
         "beautifulsoup4==4.9.3",
         "lxml==4.6.3",
-        "zimply_core>=1.0.0,<2.0.0",
+        "zimply_core>=1.0.4,<2.0.0",
     ],
     include_package_data=True,
     license="MIT",
