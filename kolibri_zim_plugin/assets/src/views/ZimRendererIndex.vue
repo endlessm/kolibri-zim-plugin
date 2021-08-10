@@ -207,6 +207,7 @@
         });
       },
       onNavRandomArticleClick() {
+        this.isSearching = false;
         const random_article_url = urls.zim_random_article(this.zimFilename);
         this.$refs.zimContentView.navigateToUrl(random_article_url);
       },
