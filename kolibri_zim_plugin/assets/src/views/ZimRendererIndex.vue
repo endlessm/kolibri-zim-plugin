@@ -3,7 +3,7 @@
   <CoreFullscreen
     ref="zimRenderer"
     class="zim-renderer"
-    :style="{ height: contentRendererHeight, width: iframeWidth }"
+    :style="{ width: iframeWidth }"
     @changeFullscreen="isInFullscreen = $event"
   >
     <div
@@ -87,9 +87,7 @@
   import ZimSearchView from './ZimSearchView';
   import ShuffleIcon from './ShuffleIcon';
 
-  const defaultContentHeight = '500px';
   const defaultFullscreenHeaderHeight = '37px';
-  const pxStringAdd = (x, y) => parseInt(x, 10) + parseInt(y, 10) + 'px';
 
   export default {
     name: 'ZimRendererIndex',
@@ -114,14 +112,8 @@
       zimFilename() {
         return `${this.defaultFile.checksum}.${this.defaultFile.extension}`;
       },
-      iframeHeight() {
-        return (this.options && this.options.height) || defaultContentHeight;
-      },
       iframeWidth() {
         return (this.options && this.options.width) || 'auto';
-      },
-      contentRendererHeight() {
-        return pxStringAdd(this.iframeHeight, this.fullscreenHeaderHeight);
       },
       fullscreenText() {
         return this.isInFullscreen ? this.$tr('exitFullscreen') : this.$tr('enterFullscreen');
@@ -147,7 +139,7 @@
             bottom: 0,
           };
         } else {
-          return { height: this.iframeHeight };
+          return {};
         }
       },
       breadcrumbs() {
@@ -269,10 +261,23 @@
 
   @import '~kolibri-design-system/lib/styles/definitions';
   @import '~kolibri-design-system/lib/keen/styles/md-colors';
+  $ui-toolbar-height: 56px;
 
   .zim-renderer {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - #{$ui-toolbar-height});
     background: #ffffff;
+
+    .fullscreen-header {
+      flex-grow: 0;
+      flex-shrink: 0;
+    }
+
+    .main-container {
+      flex-grow: 1;
+    }
   }
 
   .fullscreen-header {
@@ -314,7 +319,6 @@
 
     position: relative;
     width: 100%;
-    padding-top: 0.25rem;
     overflow: hidden;
     background-color: #ffffff;
   }
