@@ -209,9 +209,8 @@ class ZimSearchView(_ZimFileViewMixin, View):
         result = {"title": search_result.title, "path": full_url}
         if snippet_length:
             zim_article = self.zim_file.get_article(full_url)
-            result["snippet"] = _html_snippet(
-                to_bytes(zim_article.data, "utf-8"), max_chars=snippet_length
-            )
+            soup = _zim_article_soup(zim_article)
+            result["snippet"] = _html_snippet(soup, max_chars=snippet_length)
         return result
 
 
@@ -226,21 +225,66 @@ def _zim_article_url(request, zim_filename, zim_article_path):
     return request.build_absolute_uri("/" + redirect_url)
 
 
-def _html_snippet(html_str, max_chars):
-    soup = bs4.BeautifulSoup(html_str, "lxml")
+def _zim_article_soup(zim_article):
+    html_str = to_bytes(zim_article.data, "utf-8")
+    return bs4.BeautifulSoup(html_str, "lxml")
+
+
+def _html_snippet(soup, max_chars):
     snippet_text = _html_snippet_text(soup)
     return textwrap.shorten(snippet_text, width=max_chars, placeholder="")
 
 
 def _html_snippet_text(soup):
     meta_description = soup.find("meta", attrs={"name": "description"})
-    if meta_description:
-        return meta_description.get("content")
 
-    article_elems = soup.find("body").find_all(["h2", "h3", "h4", "h5", "h6", "p"])
+    if meta_description:
+        description_text = meta_description.get("content").strip()
+    else:
+        description_text = None
+
+    if description_text:
+        return description_text
+
+    article_elems = filter(
+        _filter_article_elem,
+        soup.find("body").find_all(["h2", "h3", "h4", "h5", "h6", "p"]),
+    )
     article_elems_text = "\n".join(elem.get_text() for elem in article_elems)
 
     if len(article_elems_text) > 0:
         return article_elems_text
 
-    return soup.find("body").get_text()
+    return soup.find("body").get_text().strip()
+
+
+def _filter_article_elem(elem):
+    exclude_parent_roles = [
+        "banner",
+        "complementary",
+        "contentinfo",
+        "form",
+        "navigation",
+        "search",
+    ]
+
+    # In addition to excluding elements by role, we can filter some well-known
+    # class names in supported zim files.
+
+    exclude_parent_classes = [
+        "article_byline",  # WikiHow
+    ]
+
+    while elem:
+        if elem.has_attr("hidden"):
+            return False
+        elif elem.get("role") in exclude_parent_roles:
+            return False
+        elif any(
+            elem_class in exclude_parent_classes
+            for elem_class in elem.get_attribute_list("class")
+        ):
+            return False
+        elem = elem.parent
+
+    return True
