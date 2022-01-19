@@ -39,8 +39,8 @@ setup(
     ],
     package_dir={plugin_name: plugin_name},
     install_requires=[
-        "beautifulsoup4==4.9.3",
-        "lxml==4.6.3",
+        "beautifulsoup4==4.10.0",
+        "lxml==4.7.1",
         "zimply_core>=1.0.4,<2.0.0",
     ],
     include_package_data=True,
