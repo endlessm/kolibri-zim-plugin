@@ -156,6 +156,15 @@
       onNavRandomArticleClickDebounced() {
         return debounce(this.onNavRandomArticleClick, 500, { leading: true });
       },
+
+      /* eslint-disable kolibri/vue-no-unused-properties */
+      // Note: the default duration historically for HTML5 Apps has been 5 min,
+      // so we can use the same for zim files
+      // Based on:
+      // https://github.com/learningequality/kolibri/blob/release-v0.15.x/kolibri/plugins/html5_viewer/assets/src/views/Html5AppRendererIndex.vue#L124-L126
+      defaultDuration() {
+        return 300;
+      },
     },
     mounted() {
       this.initResizeObserver();
