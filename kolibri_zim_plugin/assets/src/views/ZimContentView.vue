@@ -30,6 +30,14 @@
         return this.$route.query.zimPath || '';
       },
     },
+    watch: {
+      '$route.query.zimPath': {
+        handler: function(zimPath) {
+          this.loadArticle(zimPath);
+        },
+        immediate: true,
+      },
+    },
     mounted() {
       this.shadow = this.$refs.content.attachShadow({ mode: 'closed' });
       this.shadow.addEventListener('click', this.onShadowClick, { capture: true });
