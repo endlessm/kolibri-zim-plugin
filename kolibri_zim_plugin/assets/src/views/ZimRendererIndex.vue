@@ -35,8 +35,7 @@
           <ShuffleIcon slot="icon" />
         </KButton>
         <ZimBreadcrumbsMenu
-          :breadcrumbs="breadcrumbs"
-          :currentUrl="isSearching ? undefined : currentUrl"
+          :currentPathIsEnabled="isSearching"
           @activate="onNavBreadcrumbActivate"
         />
       </nav>
@@ -66,6 +65,7 @@
       </div>
       <ZimContentView
         ref="zimContentView"
+        class="zim-content-view"
         :zimFilename="zimFilename"
         @onnavigate="onZimContentViewNavigate"
       />
@@ -78,6 +78,7 @@
 <script>
 
   import urls from 'kolibri.urls';
+  import { mapActions } from 'vuex';
   import CoreFullscreen from 'kolibri.coreVue.components.CoreFullscreen';
 
   import debounce from 'lodash/debounce';
@@ -102,15 +103,14 @@
       return {
         isInFullscreen: false,
         isSearching: false,
-        currentUrl: undefined,
-        zimNavigationHistory: new Array(),
         fullscreenHeaderHeight: defaultFullscreenHeaderHeight,
         resizeObserver: null,
       };
     },
     computed: {
       zimFilename() {
-        return `${this.defaultFile.checksum}.${this.defaultFile.extension}`;
+        const defaultFile = this.defaultFile;
+        return `${defaultFile.checksum}.${defaultFile.extension}`;
       },
       iframeWidth() {
         return (this.options && this.options.width) || 'auto';
@@ -142,17 +142,6 @@
           return {};
         }
       },
-      breadcrumbs() {
-        if (this.zimNavigationHistory.length === 0) {
-          const homeBreadcrumb = {
-            title: this.$tr('homeBreadcrumb'),
-            href: this.indexUrl,
-          };
-          return [homeBreadcrumb];
-        } else {
-          return this.zimNavigationHistory.slice();
-        }
-      },
       onNavRandomArticleClickDebounced() {
         return debounce(this.onNavRandomArticleClick, 500, { leading: true });
       },
@@ -179,6 +168,7 @@
       this.$emit('stopTracking');
     },
     methods: {
+      ...mapActions('zim', ['pushNavigationHistory', 'resetNavigationHistory']),
       initResizeObserver() {
         // It would be nice to polyfill ResizeObserver, but the default case
         // should work reasonably well in most situations.
@@ -214,16 +204,12 @@
       },
       onNavBreadcrumbActivate(breadcrumb) {
         this.isSearching = false;
-        if (breadcrumb.href) {
-          this.$refs.zimContentView.navigateToUrl(breadcrumb.href);
-        }
+        this.$router.push({ query: { zimPath: breadcrumb.path } });
       },
       onZimSearchViewActivate({ path }) {
         this.isSearching = false;
-        // Assume that the first item in zimNavigationHistory is the home
-        // article, which we want to keep, and remove everything else.
-        this.zimNavigationHistory.splice(1);
-        this.$refs.zimContentView.navigateToArticle(path);
+        this.resetNavigationHistory();
+        this.$router.push({ query: { zimPath: path } });
       },
       onZimSearchViewCancel() {
         this.isSearching = false;
@@ -233,31 +219,17 @@
           this.isSearching = false;
         }
       },
-      onZimContentViewNavigate({ href, title }) {
-        this.currentUrl = href;
-
-        const existingIndex = this.zimNavigationHistory.findIndex(
-          breadcrumb => breadcrumb.href === href
-        );
-
-        if (existingIndex >= 0) {
-          this.zimNavigationHistory.splice(existingIndex);
+      onZimContentViewNavigate({ path, title }) {
+        if (path === '') {
+          this.resetNavigationHistory();
+        } else {
+          this.pushNavigationHistory({ path, title });
         }
-
-        if (this.zimNavigationHistory.length == 0) {
-          // We always assume the first breadcrumb is the home page. It has a
-          // special title because the page title for the English Wikipedia
-          // Zim file's index page is "User:The_other_Kiwix_guy/Landing".
-          title = this.$tr('homeBreadcrumb');
-        }
-
-        this.zimNavigationHistory.push({ title, href });
       },
     },
     $trs: {
       enterFullscreen: 'View Fullscreen',
       exitFullscreen: 'Exit Fullscreen',
-      homeBreadcrumb: 'Home',
       randomArticle: 'Random Article',
       search: 'Search',
     },
@@ -336,6 +308,7 @@
     position: absolute;
     top: 0;
     left: 0;
+    z-index: 2;
     width: 100%;
     height: 100%;
     background-color: rgba(255, 255, 255, 0.8);
@@ -349,6 +322,10 @@
       background-color: $md-grey-200;
       border-bottom: 2px solid $md-grey-400;
     }
+  }
+
+  .zim-content-view {
+    z-index: 1;
   }
 
 </style>

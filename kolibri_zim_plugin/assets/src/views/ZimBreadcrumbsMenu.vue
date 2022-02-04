@@ -11,8 +11,8 @@
           class="zim-breadcrumb-button"
           :primary="false"
           appearance="flat-button"
-          :text="breadcrumb.title"
-          :title="breadcrumb.title"
+          :text="breadcrumbTitle(breadcrumb)"
+          :title="breadcrumbTitle(breadcrumb)"
           :disabled="!breadcrumbIsEnabled(breadcrumb)"
           @click="$emit('activate', breadcrumb)"
         />
@@ -25,32 +25,47 @@
 
 <script>
 
+  import { mapState } from 'vuex';
+
   export default {
     name: 'ZimBreadcrumbsMenu',
     components: {},
     props: {
-      breadcrumbs: {
-        type: Array,
-      },
-      currentUrl: {
-        type: String,
+      currentPathIsEnabled: {
+        type: Boolean,
       },
     },
     computed: {
+      ...mapState('zim', ['navigationHistory']),
+      currentPath() {
+        return this.$route.query.zimPath || '';
+      },
+      breadcrumbs() {
+        return this.navigationHistory.slice();
+      },
       visibleBreadcrumbs() {
         return this.breadcrumbs.slice(-4);
       },
     },
     methods: {
       breadcrumbIsEnabled(breadcrumb) {
-        if (breadcrumb.href === undefined) {
-          return false;
+        if (breadcrumb.path === this.currentPath) {
+          return this.currentPathIsEnabled;
         } else {
-          return breadcrumb.href !== this.currentUrl;
+          return true;
+        }
+      },
+      breadcrumbTitle(breadcrumb) {
+        if (breadcrumb.path === '') {
+          return this.$tr('homeBreadcrumb');
+        } else {
+          return breadcrumb.title;
         }
       },
     },
-    $trs: {},
+    $trs: {
+      homeBreadcrumb: 'Home',
+    },
   };
 
 </script>
