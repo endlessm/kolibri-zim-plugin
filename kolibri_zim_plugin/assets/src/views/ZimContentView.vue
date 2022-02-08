@@ -1,9 +1,15 @@
 <template>
 
-  <div
-    ref="content"
-    class="content"
-  ></div>
+  <div>
+    <div
+      ref="content"
+      :class="[ 'content' ]"
+    ></div>
+    <div
+      ref="loadContent"
+      :class="[ 'load-content' ]"
+    ></div>
+  </div>
 
 </template>
 
@@ -23,6 +29,8 @@
     data() {
       return {
         shadow: null,
+        resourcesToLoad: 0,
+        resourcesLoaded: 0,
       };
     },
     computed: {
@@ -41,6 +49,7 @@
     mounted() {
       this.shadow = this.$refs.content.attachShadow({ mode: 'closed' });
       this.shadow.addEventListener('click', this.onShadowClick, { capture: true });
+      this.loadShadow = this.$refs.loadContent.attachShadow({ mode: 'closed' });
       this.loadArticle(this.zimPath);
     },
     methods: {
@@ -63,6 +72,8 @@
         const parser = new DOMParser();
         const document = parser.parseFromString(html, 'text/html');
         const title = document.title;
+        this.resourcesToLoad = 0;
+        this.resourcesLoaded = 0;
         // We can't set the base URI with shadow dom, so we will need to
         // rewrite relative URLs...
         document.getElementsByTagName('*').forEach(elem => {
@@ -87,10 +98,29 @@
             elem.setAttribute('src', remapUrl);
           }
         });
-        // TODO: Wait for external resources to load, first, to prevent flash
-        //       of unstyled content.
-        this.shadow.replaceChildren(document.documentElement);
+        document.head.getElementsByTagName('link').forEach(elem => {
+          if (elem.rel === 'stylesheet' && elem.hasAttribute('href')) {
+            this.resourcesToLoad += 1;
+            elem.addEventListener('load', this.onDocumentResourceLoad, { once: true });
+            elem.addEventListener('error', this.onDocumentResourceLoad, { once: true });
+          }
+        });
+        this.loadShadow.replaceChildren(document.documentElement);
+        this.checkDocumentLoadFinished();
         return title;
+      },
+      onDocumentResourceLoad() {
+        this.resourcesLoaded += 1;
+        this.checkDocumentLoadFinished();
+      },
+      checkDocumentLoadFinished() {
+        if (this.resourcesLoaded < this.resourcesToLoad) {
+          return;
+        }
+
+        if (this.loadShadow.children.length > 0) {
+          this.shadow.replaceChildren(...this.loadShadow.children);
+        }
       },
       zimPathFromUrl(url) {
         const fullPath = url.pathname;
@@ -164,6 +194,10 @@
     // Set the transform property so fixed-position children are relative to
     // this element.
     transform: translate(0);
+  }
+
+  .load-content {
+    display: none;
   }
 
 </style>
