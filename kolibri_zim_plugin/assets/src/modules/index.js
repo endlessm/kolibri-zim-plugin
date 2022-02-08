@@ -17,9 +17,19 @@ export default {
   },
   getters: {},
   actions: {
-    pushNavigationHistory(store, { path, title }) {
+    pushNavigationHistory(store, { path, redirectFrom, title }) {
       const navigationHistory = store.state.navigationHistory.slice();
-      const existingIndex = navigationHistory.findIndex(entry => entry.path === path);
+
+      if (redirectFrom === '') {
+        // Special case to treat the index page's path as "", which makes it
+        // easier to have a persistent Home breadcrumb.
+        path = '';
+      }
+
+      const existingIndex = navigationHistory.findIndex(
+        entry => entry.path === path || entry.path === redirectFrom
+      );
+
       if (existingIndex >= 0) {
         navigationHistory.splice(existingIndex);
       }

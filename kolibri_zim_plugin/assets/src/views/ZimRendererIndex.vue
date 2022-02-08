@@ -219,11 +219,11 @@
           this.isSearching = false;
         }
       },
-      onZimContentViewNavigate({ path, title }) {
+      onZimContentViewNavigate({ path, redirectFrom, title }) {
         if (path === '') {
           this.resetNavigationHistory();
         } else {
-          this.pushNavigationHistory({ path, title });
+          this.pushNavigationHistory({ path, redirectFrom, title });
         }
       },
     },

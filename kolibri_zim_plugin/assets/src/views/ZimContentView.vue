@@ -136,11 +136,12 @@
             return Promise.all([response.ok, response.text(), new URL(response.url)]);
           })
           .then(([response_ok, html, baseUrl]) => {
-            return Promise.all([response_ok, this.setContent(html, baseUrl)]);
+            return Promise.all([response_ok, baseUrl, this.setContent(html, baseUrl)]);
           })
-          .then(([response_ok, title]) => {
+          .then(([response_ok, baseUrl, title]) => {
             if (response_ok) {
-              this.$emit('onnavigate', { path, title });
+              const redirectFrom = baseUrl.searchParams.get('redirect_from');
+              this.$emit('onnavigate', { path, redirectFrom, title });
             }
           });
       },
