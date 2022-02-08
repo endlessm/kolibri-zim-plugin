@@ -326,6 +326,7 @@
 
   .zim-content-view {
     z-index: 1;
+    height: 100%;
   }
 
 </style>
