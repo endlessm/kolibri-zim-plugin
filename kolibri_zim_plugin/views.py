@@ -15,6 +15,7 @@ from django.http import HttpResponseNotModified
 from django.http import HttpResponseRedirect
 from django.http import HttpResponseServerError
 from django.http import JsonResponse
+from django.http import QueryDict
 from django.utils.cache import patch_response_headers
 from django.utils.http import http_date
 from django.views import View
@@ -107,7 +108,9 @@ class ZimIndexView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         if main_page is None:
             return HttpResponseNotFound("Article does not exist")
 
-        article_url = _zim_article_url(request, zim_filename, main_page.full_url)
+        article_url = _zim_article_url(
+            request, zim_filename, main_page.full_url, redirect_from=""
+        )
         return HttpResponseRedirect(article_url)
 
 
@@ -119,16 +122,30 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
 
     def get(self, request, zim_filename, zim_article_path):
         try:
-            if not zim_article_path:
-                return self._get_response_for_article(self.zim_file.main_page)
-            else:
-                zim_article = self.zim_file.get_article(zim_article_path)
-                return self._get_response_for_article(zim_article)
+            zim_article = self.zim_file.get_article(
+                zim_article_path, follow_redirect=False
+            )
         except KeyError:
             return HttpResponseNotFound("Article does not exist")
 
-    @staticmethod
-    def _get_response_for_article(article):
+        if zim_article.redirect_to_url:
+            article_url = _zim_article_url(
+                request,
+                zim_filename,
+                zim_article.redirect_to_url,
+                redirect_from=zim_article.full_url,
+            )
+            return HttpResponseRedirect(article_url)
+
+        return self._get_response_for_article(zim_article)
+
+    def _article_is_main_page(self, article):
+        if not self.zim_file.main_page:
+            return False
+
+        return self.zim_file.main_page.full_url == article.full_url
+
+    def _get_response_for_article(self, article):
         if article is None:
             return HttpResponseNotFound("Article does not exist")
 
@@ -219,7 +236,7 @@ class ZimSearchView(_ZimFileViewMixin, View):
         return result
 
 
-def _zim_article_url(request, zim_filename, zim_article_path):
+def _zim_article_url(request, zim_filename, zim_article_path, redirect_from=None):
     # I don't know why I need to torment the resolver like this instead of
     # using django.urls.reverse, but something is trying to add a language
     # prefix incorrectly and causing an error.
@@ -227,7 +244,13 @@ def _zim_article_url(request, zim_filename, zim_article_path):
     redirect_url = resolver.reverse(
         "zim_article", zim_filename=zim_filename, zim_article_path=zim_article_path
     )
-    return request.build_absolute_uri("/" + redirect_url)
+    url = request.build_absolute_uri("/" + redirect_url)
+    if redirect_from is not None:
+        query = QueryDict(mutable=True)
+        query["redirect_from"] = redirect_from
+        return "{url}?{query}".format(url=url, query=query.urlencode())
+    else:
+        return url
 
 
 def _zim_article_soup(zim_article):
