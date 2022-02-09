@@ -222,15 +222,19 @@ class ZimSearchView(_ZimFileViewMixin, View):
 
     def __article_metadata(self, search_result, snippet_length):
         full_url = search_result.namespace + "/" + search_result.url
+        zim_article = self.zim_file.get_article(full_url, follow_redirect=False)
 
-        result = {"path": full_url}
+        result = {}
 
-        zim_article = self.zim_file.get_article(full_url)
-        soup = _zim_article_soup(zim_article)
+        if zim_article.redirect_to_url:
+            result["redirect_from"] = zim_article.title
+            zim_article = self.zim_file.get_article(full_url, follow_redirect=True)
 
-        result["title"] = _html_title(soup) or search_result.title
+        result["path"] = zim_article.full_url
+        result["title"] = zim_article.title
 
         if snippet_length:
+            soup = _zim_article_soup(zim_article)
             result["snippet"] = _html_snippet(soup, max_chars=snippet_length)
 
         return result
@@ -256,14 +260,6 @@ def _zim_article_url(request, zim_filename, zim_article_path, redirect_from=None
 def _zim_article_soup(zim_article):
     html_str = to_bytes(zim_article.data, "utf-8")
     return bs4.BeautifulSoup(html_str, "lxml")
-
-
-def _html_title(soup):
-    title = soup.find("title")
-    if title:
-        return title.get_text().strip()
-    else:
-        return None
 
 
 def _html_snippet(soup, max_chars):

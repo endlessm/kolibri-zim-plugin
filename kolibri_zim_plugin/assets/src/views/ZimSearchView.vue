@@ -61,6 +61,13 @@
               :href="articleUrl(article.path)"
               @click.prevent="$emit('activate', article)"
             />
+            <small v-if="article.redirect_from">
+              {{ $tr(
+                'redirectedFromMsg', {
+                  title: article.redirect_from
+                }
+              ) }}
+            </small>
             <p>{{ article.snippet }}&nbsp;&hellip;</p>
           </li>
         </template>
@@ -260,6 +267,7 @@
         "{count, plural, one {{count} result} other {Top {count} results}} for '{query}'",
       noSearchResultsMsg: "No results for '{query}'",
       moreResultsMsg: '{count, plural, one {{count} more result} other {{count} more results}}',
+      redirectedFromMsg: 'Redirected from { title }',
       loadMoreButtonLabel: 'Load more',
     },
   };
@@ -338,6 +346,10 @@
       font-weight: bold;
     }
 
+    small {
+      color: $md-grey-700;
+    }
+
     p {
       margin: 0.5rem 0 1rem;
       font-size: 0.9375rem;
@@ -347,7 +359,7 @@
   .zim-search-footer {
     padding: 1rem 0;
     text-align: center;
-    border-top: 1px solid $md-grey-400;
+    border-top: 1px solid $md-grey-600;
 
     p {
       margin-bottom: 0.5rem;
