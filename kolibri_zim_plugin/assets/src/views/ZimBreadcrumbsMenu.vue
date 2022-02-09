@@ -37,9 +37,6 @@
     },
     computed: {
       ...mapState('zim', ['navigationHistory']),
-      currentPath() {
-        return this.$route.query.zimPath || '';
-      },
       breadcrumbs() {
         return this.navigationHistory.slice();
       },
@@ -49,7 +46,10 @@
     },
     methods: {
       breadcrumbIsEnabled(breadcrumb) {
-        if (breadcrumb.path === this.currentPath) {
+        if (
+          breadcrumb.path === this.$route.query.zimPath ||
+          breadcrumb.path === this.$route.query.redirectFrom
+        ) {
           return this.currentPathIsEnabled;
         } else {
           return true;

@@ -67,7 +67,7 @@
         ref="zimContentView"
         class="zim-content-view"
         :zimFilename="zimFilename"
-        @onnavigate="onZimContentViewNavigate"
+        @articleReady="onZimContentViewArticleReady"
       />
     </div>
   </CoreFullscreen>
@@ -200,6 +200,8 @@
       onNavRandomArticleClick() {
         this.isSearching = false;
         const random_article_url = urls.zim_random_article(this.zimFilename);
+        // FIXME: Instead, use the random article API to get an zim path, then
+        //        this.$router.push({ query: { zimPath } });
         this.$refs.zimContentView.navigateToUrl(random_article_url);
       },
       onNavBreadcrumbActivate(breadcrumb) {
@@ -219,12 +221,8 @@
           this.isSearching = false;
         }
       },
-      onZimContentViewNavigate({ path, redirectFrom, title }) {
-        if (path === '') {
-          this.resetNavigationHistory();
-        } else {
-          this.pushNavigationHistory({ path, redirectFrom, title });
-        }
+      onZimContentViewArticleReady({ zimPath, redirectFrom, title }) {
+        this.pushNavigationHistory({ path: zimPath, redirectFrom, title });
       },
     },
     $trs: {

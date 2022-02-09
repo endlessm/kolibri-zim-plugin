@@ -192,8 +192,7 @@
               success: true,
             };
           })
-          .catch(error => {
-            console.log('error', error);
+          .catch(() => {
             this.suggestResults = {};
           });
       },

@@ -1,15 +1,15 @@
 <template>
 
-  <div>
-    <div
-      ref="content"
-      :class="[ 'content' ]"
-    ></div>
-    <div
-      ref="loadContent"
-      :class="[ 'load-content' ]"
-    ></div>
-  </div>
+  <DOMTreeRenderer
+    ref="domTreeRenderer"
+    :document="document"
+    :location="location"
+    :openExternalLinksInNewWindow="true"
+    :class="[ 'content', documentReady === false ? 'content--loading' : null ]"
+    @loadStarted="onLoadStarted"
+    @loadFinished="onLoadFinished"
+    @linkClicked="onLinkClicked"
+  />
 
 </template>
 
@@ -18,9 +18,13 @@
 
   import urls from 'kolibri.urls';
 
+  import DOMTreeRenderer from './DOMTreeRenderer';
+
   export default {
     name: 'ZimContentView',
-    components: {},
+    components: {
+      DOMTreeRenderer,
+    },
     props: {
       zimFilename: {
         type: String,
@@ -28,98 +32,116 @@
     },
     data() {
       return {
-        shadow: null,
-        resourcesToLoad: 0,
-        resourcesLoaded: 0,
+        document: null,
+        location: null,
+        documentReady: false,
       };
     },
     computed: {
-      zimPath() {
-        return this.$route.query.zimPath || '';
+      zimPathAndZimHash() {
+        return [
+          this.$route.query.zimPath,
+          this.$route.query.zimHash,
+          this.$route.query.redirectFrom,
+        ];
       },
     },
     watch: {
-      '$route.query.zimPath': {
-        handler: function(zimPath) {
-          this.loadArticle(zimPath);
+      zimPathAndZimHash: {
+        handler: function([zimPath, zimHash, redirectFrom], oldValue) {
+          if (!oldValue) {
+            this.loadZimPath(zimPath, zimHash);
+          } else {
+            const oldZimPath = oldValue[0];
+            if (zimPath === oldZimPath || redirectFrom === oldZimPath) {
+              this.scrollToZimHash(zimHash);
+            } else {
+              this.loadZimPath(zimPath, zimHash);
+            }
+          }
         },
         immediate: true,
       },
     },
-    mounted() {
-      this.shadow = this.$refs.content.attachShadow({ mode: 'closed' });
-      this.shadow.addEventListener('click', this.onShadowClick, { capture: true });
-      this.loadShadow = this.$refs.loadContent.attachShadow({ mode: 'closed' });
-      this.loadArticle(this.zimPath);
-    },
     methods: {
-      /**
-       * @public
-       */
-      navigateToUrl(url) {
-        const articlePath = this.zimPathFromUrl(new URL(url));
-        if (articlePath) {
-          this.navigateToArticle(articlePath);
+      loadZimPath(requestZimPath, zimHash) {
+        const urlString = requestZimPath
+          ? urls.zim_article(this.zimFilename, requestZimPath)
+          : urls.zim_index(this.zimFilename);
+        const requestUrl = new URL(urlString, window.location);
+
+        return fetch(requestUrl)
+          .then(response => {
+            const responseUrl = new URL(response.url);
+            const responseZimPath = this.zimPathFromUrl(responseUrl);
+
+            if (responseZimPath != requestZimPath) {
+              this.$router.replace({
+                query: {
+                  zimPath: responseZimPath,
+                  zimHash: zimHash,
+                  redirectFrom: responseUrl.searchParams.get('redirect_from'),
+                },
+              });
+            }
+
+            const articleContext = {
+              url: responseUrl,
+              zimPath: this.$route.query.zimPath,
+              redirectFrom: this.$route.query.redirectFrom,
+            };
+
+            return Promise.all([response.ok, articleContext, response.text()]);
+          })
+          .then(([response_ok, articleContext, html]) => {
+            return Promise.all([
+              response_ok,
+              articleContext,
+              this.setDocumentFromHtml(html, articleContext.url),
+            ]);
+          })
+          .then(([response_ok, articleContext, title]) => {
+            if (!response_ok) {
+              return;
+            }
+            this.scrollToZimHash(zimHash);
+            this.$emit('articleReady', {
+              ...articleContext,
+              title,
+            });
+          });
+      },
+      scrollToZimHash(zimHash) {
+        if (!this.$refs.domTreeRenderer) {
+          return;
         }
+        this.$refs.domTreeRenderer.scrollTo(zimHash);
       },
-      /**
-       * @public
-       */
-      navigateToArticle(path) {
-        this.loadArticle(path);
-      },
-      setContent(html, baseUrl) {
+      setDocumentFromHtml(html, location) {
         const parser = new DOMParser();
         const document = parser.parseFromString(html, 'text/html');
         const title = document.title;
-        this.resourcesToLoad = 0;
-        this.resourcesLoaded = 0;
-        // We can't set the base URI with shadow dom, so we will need to
-        // rewrite relative URLs...
-        document.getElementsByTagName('*').forEach(elem => {
-          if (elem.hasAttribute('href')) {
-            const href = elem.getAttribute('href');
-            const remapUrl = new URL(href, baseUrl);
-            elem.setAttribute('href', remapUrl);
-
-            const zimPath = this.zimPathFromUrl(remapUrl);
-
-            if (zimPath) {
-              elem.setAttribute('data-kolibri-zim-path', zimPath);
-              elem.setAttribute('data-kolibri-zim-hash', remapUrl.hash);
-            }
-
-            if (remapUrl.host !== baseUrl.host) {
-              elem.setAttribute('target', '_blank');
-            }
-          } else if (elem.hasAttribute('src')) {
-            const src = elem.getAttribute('src');
-            const remapUrl = new URL(src, baseUrl);
-            elem.setAttribute('src', remapUrl);
-          }
-        });
-        document.head.getElementsByTagName('link').forEach(elem => {
-          if (elem.rel === 'stylesheet' && elem.hasAttribute('href')) {
-            this.resourcesToLoad += 1;
-            elem.addEventListener('load', this.onDocumentResourceLoad, { once: true });
-            elem.addEventListener('error', this.onDocumentResourceLoad, { once: true });
-          }
-        });
-        this.loadShadow.replaceChildren(document.documentElement);
-        this.checkDocumentLoadFinished();
+        this.document = document;
+        this.location = location;
         return title;
       },
-      onDocumentResourceLoad() {
-        this.resourcesLoaded += 1;
-        this.checkDocumentLoadFinished();
+      onLoadStarted() {
+        this.documentReady = false;
       },
-      checkDocumentLoadFinished() {
-        if (this.resourcesLoaded < this.resourcesToLoad) {
-          return;
-        }
+      onLoadFinished() {
+        this.documentReady = true;
+      },
+      onLinkClicked({ url, event }) {
+        event.preventDefault();
 
-        if (this.loadShadow.children.length > 0) {
-          this.shadow.replaceChildren(...this.loadShadow.children);
+        const zimPath = this.zimPathFromUrl(url);
+        const zimHash = url.hash ? url.hash.substr(1) : '';
+
+        if (zimPath) {
+          event.preventDefault();
+          if (zimPath != this.$route.query.zimPath || zimHash != this.$route.query.zimHash) {
+            this.$router.push({ query: { zimPath, zimHash } });
+          }
         }
       },
       zimPathFromUrl(url) {
@@ -131,49 +153,6 @@
         } else {
           return undefined;
         }
-      },
-      onShadowClick(event) {
-        const clickElem = this.shadow.elementFromPoint(event.clientX, event.clientY);
-        const linkElem = clickElem ? clickElem.closest('a') : undefined;
-
-        if (!linkElem) {
-          return;
-        }
-
-        const zimPath = linkElem.dataset.kolibriZimPath;
-        const zimHash = linkElem.dataset.kolibriZimHash;
-
-        if (zimPath == this.zimPath && zimHash) {
-          // TODO: It would be nice if we put this hash in the URL somewhere
-          //       so the user can navigate back easily.
-          event.preventDefault();
-          const targetElem = this.shadow.getElementById(zimHash.slice(1));
-          targetElem.scrollIntoView();
-        } else if (zimPath == this.zimPath) {
-          event.preventDefault();
-        } else if (zimPath) {
-          event.preventDefault();
-          this.$router.push({ query: { zimPath } });
-        }
-      },
-      loadArticle(path) {
-        const url = path
-          ? urls.zim_article(this.zimFilename, path)
-          : urls.zim_index(this.zimFilename);
-
-        return fetch(url)
-          .then(response => {
-            return Promise.all([response.ok, response.text(), new URL(response.url)]);
-          })
-          .then(([response_ok, html, baseUrl]) => {
-            return Promise.all([response_ok, baseUrl, this.setContent(html, baseUrl)]);
-          })
-          .then(([response_ok, baseUrl, title]) => {
-            if (response_ok) {
-              const redirectFrom = baseUrl.searchParams.get('redirect_from');
-              this.$emit('onnavigate', { path, redirectFrom, title });
-            }
-          });
       },
     },
     $trs: {},
@@ -191,13 +170,15 @@
     width: 100%;
     height: 100%;
     overflow: auto;
+    opacity: 1;
+    transition: opacity 0.5s ease;
     // Set the transform property so fixed-position children are relative to
     // this element.
     transform: translate(0);
   }
 
-  .load-content {
-    display: none;
+  .content--loading {
+    opacity: 0;
   }
 
 </style>
