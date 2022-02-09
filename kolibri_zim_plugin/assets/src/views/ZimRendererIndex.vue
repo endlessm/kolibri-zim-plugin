@@ -199,10 +199,16 @@
       },
       onNavRandomArticleClick() {
         this.isSearching = false;
-        const random_article_url = urls.zim_random_article(this.zimFilename);
-        // FIXME: Instead, use the random article API to get an zim path, then
-        //        this.$router.push({ query: { zimPath } });
-        this.$refs.zimContentView.navigateToUrl(random_article_url);
+        return fetch(urls.zim_random_article(this.zimFilename))
+          .then(response => {
+            return response.json();
+          })
+          .then(json => {
+            const zimPath = json.zimPath;
+            if (zimPath) {
+              this.$router.push({ query: { zimPath } });
+            }
+          });
       },
       onNavBreadcrumbActivate(breadcrumb) {
         this.isSearching = false;

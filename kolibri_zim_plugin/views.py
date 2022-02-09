@@ -167,10 +167,8 @@ class ZimRandomArticleView(_ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        article_url = _zim_article_url(
-            request, zim_filename, self.zim_file.random_article_url
-        )
-        return HttpResponseRedirect(article_url)
+        random_article_path = self.zim_file.random_article_url
+        return JsonResponse({"zimFile": zim_filename, "zimPath": random_article_path})
 
 
 class ZimSearchView(_ZimFileViewMixin, View):
