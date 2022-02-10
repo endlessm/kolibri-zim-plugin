@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import random
 import textwrap
 import time
 
@@ -179,8 +180,31 @@ class ZimRandomArticleView(_ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        random_article_path = self.zim_client.random_article_url
+        random_article_path = self.__get_random_article_path()
         return JsonResponse({"zimFile": zim_filename, "zimPath": random_article_path})
+
+    def __get_random_article_path(self):
+        if self.zim_client._zim_file.version <= (6, 0):
+            return self.zim_client.random_article_url
+        else:
+            # We are unable to get a random article with new Zim files
+            # <https://github.com/kimbauters/ZIMply/issues/26>
+            # But we can do an expensive workaround. We'll try a random sample
+            # of articles, and return the first one that has the correct
+            # mimetype. If we exhaust our list of random samples, we will have
+            # to return None.
+
+            articles_range = self.zim_client._zim_file.get_articles_range()
+            random_articles_list = random.sample(
+                range(articles_range.start, articles_range.end), 100
+            )
+
+            for article_id in random_articles_list:
+                article = self.zim_client._zim_file.get_article_by_id(article_id)
+                if article.mimetype == "text/html":
+                    return article.full_url
+
+            return None
 
 
 class ZimSearchView(_ZimFileViewMixin, View):
@@ -219,7 +243,9 @@ class ZimSearchView(_ZimFileViewMixin, View):
 
         if suggest:
             count = self.zim_client.get_suggestions_results_count(query)
-            search = self.zim_client.suggest(query, start=start, end=start + max_results)
+            search = self.zim_client.suggest(
+                query, start=start, end=start + max_results
+            )
         else:
             count = self.zim_client.get_search_results_count(query)
             search = self.zim_client.search(query, start=start, end=start + max_results)
