@@ -50,7 +50,7 @@ class _ZimFileViewMixin(View):
         zim_filename = kwargs["zim_filename"]
 
         try:
-            self.zim_file = self.__get_zim_file(zim_filename)
+            self.zim_client = self.__get_zim_client(zim_filename)
         except ZimFileNotFoundError:
             return HttpResponseNotFound("Zim file does not exist")
         except ZimFileReadError:
@@ -58,7 +58,7 @@ class _ZimFileViewMixin(View):
 
         return super(_ZimFileViewMixin, self).dispatch(request, *args, **kwargs)
 
-    def __get_zim_file(self, zim_filename):
+    def __get_zim_client(self, zim_filename):
         zim_file_path = get_content_storage_file_path(zim_filename)
 
         if not os.path.exists(zim_file_path):
@@ -69,7 +69,7 @@ class _ZimFileViewMixin(View):
             # A ZIMClient requires an encoding (usually UTF-8). The
             # auto_delete property only applies to an FTS index and will
             # automagically recreate an index if any issues are detected.
-            zim_file = ZIMClient(
+            zim_client = ZIMClient(
                 zim_file_path,
                 encoding="utf-8",
                 auto_delete=True,
@@ -78,7 +78,7 @@ class _ZimFileViewMixin(View):
         except RuntimeError as error:
             raise ZimFileReadError(str(error))
 
-        return zim_file
+        return zim_client
 
 
 class _ImmutableViewMixin(View):
@@ -103,7 +103,7 @@ class ZimIndexView(_ImmutableViewMixin, _ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        main_page = self.zim_file.main_page
+        main_page = self.zim_client.main_page
 
         if main_page is None:
             return HttpResponseNotFound("Article does not exist")
@@ -124,7 +124,7 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         redirect_from = request.GET.get("redirect_from")
 
         try:
-            zim_article = self.zim_file.get_article(
+            zim_article = self.zim_client.get_article(
                 zim_article_path, follow_redirect=False
             )
         except KeyError:
@@ -152,10 +152,10 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         return self._get_response_for_article(zim_article)
 
     def _article_is_main_page(self, article):
-        if not self.zim_file.main_page:
+        if not self.zim_client.main_page:
             return False
 
-        return self.zim_file.main_page.full_url == article.full_url
+        return self.zim_client.main_page.full_url == article.full_url
 
     def _get_response_for_article(self, article):
         if article is None:
@@ -179,7 +179,7 @@ class ZimRandomArticleView(_ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        random_article_path = self.zim_file.random_article_url
+        random_article_path = self.zim_client.random_article_url
         return JsonResponse({"zimFile": zim_filename, "zimPath": random_article_path})
 
 
@@ -218,11 +218,11 @@ class ZimSearchView(_ZimFileViewMixin, View):
         # score (lower is better is earlier in the list)...
 
         if suggest:
-            count = self.zim_file.get_suggestions_results_count(query)
-            search = self.zim_file.suggest(query, start=start, end=start + max_results)
+            count = self.zim_client.get_suggestions_results_count(query)
+            search = self.zim_client.suggest(query, start=start, end=start + max_results)
         else:
-            count = self.zim_file.get_search_results_count(query)
-            search = self.zim_file.search(query, start=start, end=start + max_results)
+            count = self.zim_client.get_search_results_count(query)
+            search = self.zim_client.search(query, start=start, end=start + max_results)
 
         articles = list(
             self.__article_metadata(result, snippet_length) for result in search
@@ -232,13 +232,13 @@ class ZimSearchView(_ZimFileViewMixin, View):
 
     def __article_metadata(self, search_result, snippet_length):
         full_url = search_result.namespace + "/" + search_result.url
-        zim_article = self.zim_file.get_article(full_url, follow_redirect=False)
+        zim_article = self.zim_client.get_article(full_url, follow_redirect=False)
 
         result = {}
 
         if zim_article.redirect_to_url:
             result["redirect_from"] = zim_article.title
-            zim_article = self.zim_file.get_article(full_url, follow_redirect=True)
+            zim_article = self.zim_client.get_article(full_url, follow_redirect=True)
 
         result["path"] = zim_article.full_url
         result["title"] = zim_article.title
