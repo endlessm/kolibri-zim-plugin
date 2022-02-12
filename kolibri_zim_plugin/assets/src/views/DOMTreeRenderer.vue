@@ -12,7 +12,7 @@
     components: {},
     props: {
       document: {
-        type: Element,
+        type: Document,
       },
       location: {
         type: URL,
