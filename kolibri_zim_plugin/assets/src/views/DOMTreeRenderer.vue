@@ -141,20 +141,10 @@
 
 <style lang="scss" scoped>
 
-  @import '~kolibri-design-system/lib/styles/definitions';
-
   .content {
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
     // Set the transform property so fixed-position children are relative to
     // this element.
     transform: translate(0);
-  }
-
-  .load-content {
-    display: none;
   }
 
 </style>
