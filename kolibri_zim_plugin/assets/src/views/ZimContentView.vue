@@ -103,6 +103,7 @@
         return this.pushArticleFromUrl(articleId, requestUrl, zimHash);
       },
       pushArticleFromUrl(articleId, requestUrl, zimHash) {
+        this.$emit('articleLoading');
 
         return fetch(requestUrl)
           .then(response => {

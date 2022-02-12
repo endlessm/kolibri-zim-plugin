@@ -36,9 +36,12 @@
         </KButton>
         <ZimBreadcrumbsMenu
           :currentPathIsEnabled="isSearching"
+          :isLoading="isLoading"
           @activate="onNavBreadcrumbActivate"
         />
       </nav>
+
+      <KCircularLoader v-if="isLoading" class="zim-loading-spinner" :size="18" :delay="true" />
 
       <KButton
         class="fullscreen-button"
@@ -67,6 +70,7 @@
         ref="zimContentView"
         class="zim-content-view"
         :zimFilename="zimFilename"
+        @articleLoading="onZimContentViewArticleLoading"
         @articleReady="onZimContentViewArticleReady"
       />
     </div>
@@ -103,6 +107,7 @@
       return {
         isInFullscreen: false,
         isSearching: false,
+        isLoading: false,
         fullscreenHeaderHeight: defaultFullscreenHeaderHeight,
         resizeObserver: null,
       };
@@ -227,7 +232,11 @@
           this.isSearching = false;
         }
       },
+      onZimContentViewArticleLoading() {
+        this.isLoading = true;
+      },
       onZimContentViewArticleReady({ zimPath, redirectFrom, title }) {
+        this.isLoading = false;
         this.pushNavigationHistory({ path: zimPath, redirectFrom, title });
       },
     },
@@ -297,6 +306,11 @@
       min-width: 36px;
       padding: 0 8px;
     }
+  }
+
+  .zim-loading-spinner {
+    display: inline-block;
+    vertical-align: text-bottom;
   }
 
   .main-container {

@@ -5,7 +5,6 @@
       <li
         :ref="`breadcrumb${index}`"
         :key="index"
-        class="zim-breadcrumb-item"
       >
         <KButton
           class="zim-breadcrumb-button"
