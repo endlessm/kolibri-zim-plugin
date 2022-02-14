@@ -5,7 +5,7 @@
       <DOMTreeRenderer
         :key="articleId"
         :ref="`DOMTreeRenderer:${articleId}`"
-        :class="{ 'content': true, 'content--visible': currentArticleId === articleId }"
+        :class="{ 'zim-content': true, 'zim-content-hidden': currentArticleId !== articleId }"
         :document="articleContext.document"
         :location="articleContext.location"
         :openExternalLinksInNewWindow="true"
@@ -245,22 +245,22 @@
     position: relative;
   }
 
-  .content {
+  .zim-content {
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 1;
+    z-index: 2;
     display: block;
     width: 100%;
     height: 100%;
     overflow: auto;
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.5s;
   }
 
-  .content--visible {
-    z-index: 2;
-    opacity: 1;
+  .zim-content-hidden {
+    z-index: 1;
+    opacity: 0;
   }
 
 </style>
