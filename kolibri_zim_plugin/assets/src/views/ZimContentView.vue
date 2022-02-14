@@ -107,8 +107,10 @@
 
         return fetch(requestUrl)
           .then(response => {
-            const contentType = response.headers.get('Content-Type');
-            if (contentType === 'text/html') {
+            const contentType = response.headers.get('Content-Type') || '';
+            // eslint-disable-next-line no-unused-vars
+            const [mimeType, ..._] = contentType.split(';').map(item => item.trim());
+            if (mimeType === 'text/html') {
               return Promise.all([new URL(response.url), response.text()]);
             } else {
               return Promise.reject(`Invalid response content type: ${contentType}`);
