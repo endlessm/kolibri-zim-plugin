@@ -43,6 +43,7 @@
     mounted() {
       this.shadow = this.$refs.main.attachShadow({ mode: 'closed' });
       this.shadow.addEventListener('click', this.onShadowClick, { capture: true });
+      this.shadow.addEventListener('keydown', this.onShadowKeyDown, { capture: true });
       this.updateShadowChildren();
     },
     methods: {
@@ -136,8 +137,7 @@
         }
       },
       onShadowClick(event) {
-        const clickElem = this.shadow.elementFromPoint(event.clientX, event.clientY);
-        const linkElem = clickElem ? clickElem.closest('a') : null;
+        const linkElem = event.target ? event.target.closest('a') : null;
 
         if (!linkElem) {
           return;
@@ -146,8 +146,13 @@
         if (linkElem.hasAttribute('href') && linkElem.getAttribute('target') != '_blank') {
           const href = linkElem.getAttribute('href');
           const url = new URL(href);
-
           this.$emit('linkClicked', { url, event });
+        }
+      },
+      onShadowKeyDown(event) {
+        if (event.keyCode == 13) {
+          // Handle an Enter key press like a mouse click
+          this.onShadowClick(event);
         }
       },
     },
