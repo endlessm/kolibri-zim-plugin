@@ -168,7 +168,12 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         # Ensure the browser knows not to try byte-range requests, as we don't support them here
         response["Accept-Ranges"] = "none"
         response["Last-Modified"] = http_date(time.time())
-        response["Content-Type"] = article.mimetype
+        if article.mimetype.startswith("text/"):
+            response["Content-Type"] = "{mimetype}; charset={charset}".format(
+                mimetype=article.mimetype, charset="utf-8"
+            )
+        else:
+            response["Content-Type"] = article.mimetype
         response.write(article_bytes)
         return response
 
