@@ -121,6 +121,8 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename, zim_article_path):
+        redirect_from = request.GET.get("redirect_from")
+
         try:
             zim_article = self.zim_file.get_article(
                 zim_article_path, follow_redirect=False
@@ -134,6 +136,16 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
                 zim_filename,
                 zim_article.redirect_to_url,
                 redirect_from=zim_article.full_url,
+            )
+            return HttpResponseRedirect(article_url)
+
+        if self._article_is_main_page(zim_article) and redirect_from != "":
+            # Make the main page article work like it does via ZimIndexView
+            article_url = _zim_article_url(
+                request,
+                zim_filename,
+                zim_article.full_url,
+                redirect_from="",
             )
             return HttpResponseRedirect(article_url)
 
@@ -167,10 +179,8 @@ class ZimRandomArticleView(_ZimFileViewMixin, View):
     )
 
     def get(self, request, zim_filename):
-        article_url = _zim_article_url(
-            request, zim_filename, self.zim_file.random_article_url
-        )
-        return HttpResponseRedirect(article_url)
+        random_article_path = self.zim_file.random_article_url
+        return JsonResponse({"zimFile": zim_filename, "zimPath": random_article_path})
 
 
 class ZimSearchView(_ZimFileViewMixin, View):

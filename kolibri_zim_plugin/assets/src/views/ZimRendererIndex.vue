@@ -36,9 +36,12 @@
         </KButton>
         <ZimBreadcrumbsMenu
           :currentPathIsEnabled="isSearching"
+          :isLoading="isLoading"
           @activate="onNavBreadcrumbActivate"
         />
       </nav>
+
+      <KCircularLoader v-if="isLoading" class="zim-loading-spinner" :size="18" :delay="true" />
 
       <KButton
         class="fullscreen-button"
@@ -67,7 +70,8 @@
         ref="zimContentView"
         class="zim-content-view"
         :zimFilename="zimFilename"
-        @onnavigate="onZimContentViewNavigate"
+        @articleLoading="onZimContentViewArticleLoading"
+        @articleReady="onZimContentViewArticleReady"
       />
     </div>
   </CoreFullscreen>
@@ -103,6 +107,7 @@
       return {
         isInFullscreen: false,
         isSearching: false,
+        isLoading: false,
         fullscreenHeaderHeight: defaultFullscreenHeaderHeight,
         resizeObserver: null,
       };
@@ -199,8 +204,16 @@
       },
       onNavRandomArticleClick() {
         this.isSearching = false;
-        const random_article_url = urls.zim_random_article(this.zimFilename);
-        this.$refs.zimContentView.navigateToUrl(random_article_url);
+        return fetch(urls.zim_random_article(this.zimFilename))
+          .then(response => {
+            return response.json();
+          })
+          .then(json => {
+            const zimPath = json.zimPath;
+            if (zimPath) {
+              this.$router.push({ query: { zimPath } });
+            }
+          });
       },
       onNavBreadcrumbActivate(breadcrumb) {
         this.isSearching = false;
@@ -219,12 +232,12 @@
           this.isSearching = false;
         }
       },
-      onZimContentViewNavigate({ path, redirectFrom, title }) {
-        if (path === '') {
-          this.resetNavigationHistory();
-        } else {
-          this.pushNavigationHistory({ path, redirectFrom, title });
-        }
+      onZimContentViewArticleLoading() {
+        this.isLoading = true;
+      },
+      onZimContentViewArticleReady({ zimPath, redirectFrom, title }) {
+        this.isLoading = false;
+        this.pushNavigationHistory({ path: zimPath, redirectFrom, title });
       },
     },
     $trs: {
@@ -295,6 +308,11 @@
     }
   }
 
+  .zim-loading-spinner {
+    display: inline-block;
+    vertical-align: text-bottom;
+  }
+
   .main-container {
     @extend %momentum-scroll;
 
@@ -326,6 +344,7 @@
 
   .zim-content-view {
     z-index: 1;
+    height: 100%;
   }
 
 </style>
