@@ -8,7 +8,7 @@ This is a Kolibri plugin to add a Zim file viewer.
 
 Install a release from pypi:
 
-    pip install kolibri-zim-plugin
+    pip install kolibri-zim-plugin[full]
 
 If you are using Kolibri 0.14.7, upgrade its bundled le-utils to the newest (unstable) version:
 

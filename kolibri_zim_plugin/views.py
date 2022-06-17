@@ -7,7 +7,6 @@ import random
 import textwrap
 import time
 
-import bs4
 from django.core.urlresolvers import get_resolver
 from django.http import HttpResponse
 from django.http import HttpResponseBadRequest
@@ -275,8 +274,7 @@ class ZimSearchView(_ZimFileViewMixin, View):
         result["title"] = zim_article.title
 
         if snippet_length:
-            soup = _zim_article_soup(zim_article)
-            result["snippet"] = _html_snippet(soup, max_chars=snippet_length)
+            result["snippet"] = _zim_article_snippet(zim_article, snippet_length)
 
         return result
 
@@ -298,9 +296,31 @@ def _zim_article_url(request, zim_filename, zim_article_path, redirect_from=None
         return url
 
 
+def _zim_article_snippet(zim_article, max_chars):
+    soup = _zim_article_soup(zim_article)
+
+    if soup is None:
+        return None
+
+    return _html_snippet(soup, max_chars)
+
+
 def _zim_article_soup(zim_article):
+    try:
+        import bs4
+    except ImportError:
+        return None
+
     html_str = to_bytes(zim_article.data, "utf-8")
-    return bs4.BeautifulSoup(html_str, "lxml")
+
+    try:
+        # Use lxml if it is available in this environment
+        soup = bs4.BeautifulSoup(html_str, "lxml")
+    except bs4.FeatureNotFound:
+        # Otherwise, fall back to Python's built in html parser
+        soup = bs4.BeautifulSoup(html_str, "html.parser")
+
+    return soup
 
 
 def _html_snippet(soup, max_chars):
