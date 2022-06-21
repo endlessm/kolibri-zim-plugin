@@ -39,10 +39,17 @@ setup(
     ],
     package_dir={plugin_name: plugin_name},
     install_requires=[
-        "beautifulsoup4==4.10.0",
-        "lxml==4.7.1",
         "zimply_core>=1.0.4,<2.0.0",
     ],
+    extras_require={
+        "snippets": [
+            "beautifulsoup4==4.11.1",
+        ],
+        "full": [
+            "beautifulsoup4==4.11.1",
+            "lxml==4.9.0",
+        ],
+    },
     include_package_data=True,
     license="MIT",
     zip_safe=False,

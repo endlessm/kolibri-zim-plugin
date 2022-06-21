@@ -68,7 +68,9 @@
                 }
               ) }}
             </small>
-            <p>{{ article.snippet }}&nbsp;&hellip;</p>
+            <p v-if="article.snippet">
+              {{ article.snippet }}&nbsp;&hellip;
+            </p>
           </li>
         </template>
       </ol>
@@ -332,10 +334,12 @@
 
     li.zim-search-result-item {
       display: block;
+      padding-bottom: 1rem;
       margin: 1rem 0;
       border-bottom: 1px solid $md-grey-400;
 
       &:last-child {
+        margin-bottom: 0;
         border-bottom-style: none;
       }
     }
@@ -350,7 +354,7 @@
     }
 
     p {
-      margin: 0.5rem 0 1rem;
+      margin: 0.5rem 0 0;
       font-size: 0.9375rem;
     }
   }
