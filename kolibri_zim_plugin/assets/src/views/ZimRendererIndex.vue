@@ -86,6 +86,7 @@
   import CoreFullscreen from 'kolibri.coreVue.components.CoreFullscreen';
 
   import debounce from 'lodash/debounce';
+  import map from 'lodash/map';
 
   import ZimBreadcrumbsMenu from './ZimBreadcrumbsMenu';
   import ZimContentView from './ZimContentView';
@@ -114,8 +115,19 @@
     },
     computed: {
       zimFilename() {
-        const defaultFile = this.defaultFile;
-        return `${defaultFile.checksum}.${defaultFile.extension}`;
+        // We pass the zim backend a list of zim files which must be joined
+        // together to render this content.
+        /* TODO: Instead of all availableFiles, this should only use files
+                 which we know are continuations of this.defaultFile. In
+                 addition, we should list them in a defined order instead of
+                 the default order. To achieve this, we can include some extra
+                 information in this.itemData.
+        */
+        const filenamesList = map(
+          this.availableFiles,
+          file => `${file.checksum}.${file.extension}`
+        ).reverse();
+        return filenamesList.join('|');
       },
       iframeWidth() {
         return (this.options && this.options.width) || 'auto';
