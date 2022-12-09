@@ -7,6 +7,8 @@
 
 <script>
 
+  import forEach from 'lodash/forEach';
+
   export default {
     name: 'DOMTreeRenderer',
     components: {},
@@ -70,12 +72,14 @@
 
         // We can't set the base URI with shadow dom, so we need to rewrite
         // relative URLs...
-        this.document.getElementsByTagName('*').forEach(this.remapElementUrl);
+        forEach(this.document.getElementsByTagName('*'), elem => {
+          this.remapElementUrl(elem);
+        });
 
         this.resourcesToLoad = 0;
         this.resourcesLoaded = 0;
 
-        this.document.head.getElementsByTagName('link').forEach(elem => {
+        forEach(this.document.head.getElementsByTagName('link'), elem => {
           if (elem.rel === 'stylesheet' && elem.hasAttribute('href')) {
             this.resourcesToLoad += 1;
             elem.addEventListener('load', this.onDocumentResourceLoad, { once: true });
