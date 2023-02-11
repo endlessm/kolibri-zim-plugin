@@ -37,6 +37,9 @@ setup(
     packages=[
         str(plugin_name),  # https://github.com/pypa/setuptools/pull/597
     ],
+    entry_points={
+        "kolibri.plugins": plugin_name + " = " + plugin_name,
+    },
     package_dir={plugin_name: plugin_name},
     install_requires=[
         "zimply_core>=1.0.4,<2.0.0",
