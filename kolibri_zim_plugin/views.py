@@ -109,8 +109,9 @@ class ZimIndexView(_ImmutableViewMixin, _ZimFileViewMixin, View):
             return HttpResponseNotFound("Article does not exist")
 
         article_url = _zim_article_url(
-            request, zim_filename, main_page.full_url, redirect_from=""
+            zim_filename, main_page.full_url, redirect_from=""
         )
+
         return HttpResponseRedirect(article_url)
 
 
@@ -132,7 +133,6 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
 
         if zim_article.redirect_to_url:
             article_url = _zim_article_url(
-                request,
                 zim_filename,
                 zim_article.redirect_to_url,
                 redirect_from=zim_article.full_url,
@@ -142,7 +142,6 @@ class ZimArticleView(_ImmutableViewMixin, _ZimFileViewMixin, View):
         if self._article_is_main_page(zim_article) and redirect_from != "":
             # Make the main page article work like it does via ZimIndexView
             article_url = _zim_article_url(
-                request,
                 zim_filename,
                 zim_article.full_url,
                 redirect_from="",
@@ -279,15 +278,14 @@ class ZimSearchView(_ZimFileViewMixin, View):
         return result
 
 
-def _zim_article_url(request, zim_filename, zim_article_path, redirect_from=None):
+def _zim_article_url(zim_filename, zim_article_path, redirect_from=None):
     # I don't know why I need to torment the resolver like this instead of
     # using django.urls.reverse, but something is trying to add a language
     # prefix incorrectly and causing an error.
     resolver = get_resolver(None)
-    redirect_url = resolver.reverse(
+    url = "/" + resolver.reverse(
         "zim_article", zim_filename=zim_filename, zim_article_path=zim_article_path
     )
-    url = request.build_absolute_uri("/" + redirect_url)
     if redirect_from is not None:
         query = QueryDict(mutable=True)
         query["redirect_from"] = redirect_from
